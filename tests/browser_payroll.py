@@ -34,9 +34,7 @@ with sync_playwright() as p:
     expect(panel.get_by_role('heading',name='Иван',exact=True)).to_be_visible()
     assert page.evaluate('window.calls[0].payload.income')==10000000
     card=panel.get_by_role('button',name='Иван',exact=True)
-    bounds=card.bounding_box()
-    page.mouse.move(bounds['x']+50,bounds['y']+40)
-    page.mouse.down();page.wait_for_timeout(700);page.mouse.up()
+    panel.get_by_role('button',name='Действия: Иван',exact=True).click()
     sheet=panel.get_by_role('dialog',name='Иван',exact=True)
     expect(sheet.get_by_role('button',name='Удалить',exact=True)).to_be_visible()
     sheet.get_by_role('button',name='Изменить',exact=True).click()

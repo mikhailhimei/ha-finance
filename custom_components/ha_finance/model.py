@@ -26,6 +26,16 @@ def totals(deposit):
 
 
 def apply(data, action, payload):
+    if action == "budget_clone":
+        source = next((b for b in data.get("budgets", []) if b["id"] == payload["budget_id"]), None)
+        if source is None:
+            raise ValueError("Бюджет не найден")
+        month = payload["month"]
+        if not isinstance(month, str) or not re.fullmatch(r"202[5-7]-(0[1-9]|1[0-2])", month):
+            raise ValueError("Выберите месяц бюджета")
+        data["budgets"].append({"id":uuid4().hex,"name":budget_name(month),"month":month,
+                                "expenses":[{**e,"id":uuid4().hex,"month":month} for e in source["expenses"]]})
+        return
     if action == "budget_delete":
         budgets = data.get("budgets", [])
         budget = next((b for b in budgets if b["id"] == payload["budget_id"]), None)

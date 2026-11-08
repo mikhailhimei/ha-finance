@@ -48,6 +48,19 @@ class BudgetTests(unittest.TestCase):
         self.assertEqual(len(self.data['workers']),2)
         with self.assertRaises(ValueError):model.apply(self.data,'budget_delete',{'budget_id':'missing'})
 
+    def test_clone_is_independent_and_preserves_fields(self):
+        model.apply(self.data,'budget_expense_save',self.payload)
+        model.apply(self.data,'budget_clone',{'budget_id':self.budget['id'],'month':'2026-12'})
+        clone=self.data['budgets'][-1]
+        self.assertEqual(clone['name'],'Декабрь 2026')
+        self.assertNotEqual(clone['id'],self.budget['id'])
+        self.assertNotEqual(clone['expenses'][0]['id'],self.budget['expenses'][0]['id'])
+        self.assertEqual(clone['expenses'][0]['comment'],'Стоматолог')
+        self.assertEqual(clone['expenses'][0]['payment_id'],'w:salary')
+        self.assertEqual(clone['expenses'][0]['month'],'2026-12')
+        clone['expenses'][0]['amount']=1
+        self.assertEqual(self.budget['expenses'][0]['amount'],1100000)
+
     def test_validation(self):
         for change in [{'amount':-1},{'month':'2026-13'},{'payment_id':'missing'},{'comment':'x'*1001}]:
             with self.assertRaises(ValueError):model.apply(self.data,'budget_expense_save',{**self.payload,**change})

@@ -19,11 +19,7 @@ with sync_playwright() as p:
     assert card.locator('.metric').first.inner_text().replace('\xa0','').find('243000')>=0
     expect(card).to_contain_text('Оплачено')
     expect(card).to_contain_text('Ожидается')
-    bounds=card.bounding_box()
-    page.mouse.move(bounds['x']+50,bounds['y']+40)
-    page.mouse.down()
-    page.wait_for_timeout(700)
-    page.mouse.up()
+    panel.get_by_role('button',name='Действия: Вклад озон',exact=True).click()
     expect(panel.get_by_role('dialog',name='Вклад озон',exact=True).get_by_role('button',name='Удалить',exact=True)).to_be_visible()
     expect(panel.get_by_role('heading',name='Мои вклады')).to_be_visible()
     panel.get_by_role('dialog',name='Вклад озон',exact=True).get_by_role('button',name='Удалить',exact=True).click()
