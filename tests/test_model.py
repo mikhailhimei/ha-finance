@@ -94,6 +94,12 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(data["workers"][0]["income"],12000000)
         self.assertEqual(data["deposits"],[])
 
+    def test_worker_delete(self):
+        data={'deposits':[], 'workers':[{'id':'one'},{'id':'two'}]}
+        model.apply(data,'worker_delete',{'worker_id':'one'})
+        self.assertEqual(data['workers'],[{'id':'two'}])
+        with self.assertRaises(ValueError):model.apply(data,'worker_delete',{'worker_id':'missing'})
+
     def test_invalid_days_and_type(self):
         payload={"name":"Иван", "income":100, "employment":"TK", "advance_day":25, "salary_day":10}
         for values in [{"advance_day":0},{"salary_day":32},{"salary_day":1.5},{"advance_day":True},{"employment":"other"}]:

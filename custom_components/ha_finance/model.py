@@ -25,6 +25,13 @@ def totals(deposit):
 
 
 def apply(data, action, payload):
+    if action == "worker_delete":
+        workers = data.get("workers", [])
+        worker = next((w for w in workers if w["id"] == payload["worker_id"]), None)
+        if worker is None:
+            raise ValueError("Работник не найден")
+        workers.remove(worker)
+        return
     if action == "worker_save":
         name = label(payload["name"])
         income = amount(payload["income"])
