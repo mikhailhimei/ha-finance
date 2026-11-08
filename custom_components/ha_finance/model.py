@@ -65,10 +65,30 @@ def apply(data, action, payload):
         return
     if action == "debt_create":
         name = label(payload["name"])
-        principal, remaining = amount(payload["principal"]), amount(payload["remaining"])
+        principal, remaining = amount(payload["principal"]), amount(payload.get("remaining",payload["principal"]))
         if remaining > principal:
             raise ValueError("Остаток не может превышать первоначальную сумму")
         data.setdefault("debts", []).append({"id":uuid4().hex,"name":name,"principal":principal,"remaining":remaining,"payments":[]})
+        return
+    if action in ("debt_update", "debt_delete", "debt_payment_delete"):
+        debts = data.get("debts", [])
+        debt = next((d for d in debts if d["id"] == payload["debt_id"]), None)
+        if debt is None:
+            raise ValueError("Долг не найден")
+        if action == "debt_delete":
+            debts.remove(debt)
+        elif action == "debt_update":
+            name, principal = label(payload["name"]), amount(payload["principal"])
+            paid = debt["principal"] - debt["remaining"]
+            if principal < paid:
+                raise ValueError("Изначальная сумма не может быть меньше уже внесённой")
+            debt.update(name=name,principal=principal,remaining=principal-paid)
+        else:
+            payment = next((p for p in debt["payments"] if p["id"] == payload["payment_id"]), None)
+            if payment is None:
+                raise ValueError("Платёж не найден")
+            debt["payments"].remove(payment)
+            debt["remaining"] += payment["amount"]
         return
     if action == "debt_payment":
         debt = next((d for d in data.get("debts", []) if d["id"] == payload["debt_id"]), None)

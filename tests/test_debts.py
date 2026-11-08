@@ -21,3 +21,18 @@ class DebtTests(unittest.TestCase):
         self.assertEqual(self.debt['remaining'],6000000)
         self.assertEqual(self.debt['payments'],[])
         with self.assertRaises(ValueError):model.apply(self.data,'debt_create',{'name':'Долг','principal':100,'remaining':101})
+
+    def test_default_remaining_edit_and_remove_payment(self):
+        model.apply(self.data,'debt_create',{'name':'Новый','principal':100000})
+        debt=self.data['debts'][-1]
+        self.assertEqual(debt['remaining'],100000)
+        model.apply(self.data,'debt_payment',{'debt_id':debt['id'],'amount':20000,'date':'2026-11-08'})
+        payment=debt['payments'][0]
+        model.apply(self.data,'debt_update',{'debt_id':debt['id'],'name':'Банк','principal':120000})
+        self.assertEqual(debt['remaining'],100000)
+        model.apply(self.data,'debt_payment_delete',{'debt_id':debt['id'],'payment_id':payment['id']})
+        self.assertEqual(debt['remaining'],120000)
+        self.assertEqual(debt['payments'],[])
+        with self.assertRaises(ValueError):model.apply(self.data,'debt_payment_delete',{'debt_id':debt['id'],'payment_id':payment['id']})
+        model.apply(self.data,'debt_delete',{'debt_id':debt['id']})
+        self.assertNotIn(debt,self.data['debts'])

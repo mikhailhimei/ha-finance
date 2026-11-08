@@ -31,7 +31,7 @@ export function Navigation({tab,select,openSidebar}:{tab:number;select:(tab:numb
  {open&&<div className="navigation-backdrop" onClick={()=>setOpen(false)}><section ref={menu} className="section-menu" role="dialog" aria-modal="true" aria-label="Разделы финансов" onClick={e=>e.stopPropagation()}>
   <div className="sheet-handle" aria-hidden="true"/>
   <header><h2>Разделы финансов</h2><button className="icon-button" aria-label="Закрыть разделы" onClick={()=>setOpen(false)}>×</button></header>
-  <nav aria-label="Разделы">{sections.map((name,index)=><button key={name} aria-current={index===tab?'page':undefined} onClick={()=>{select(index);setOpen(false)}}><span>{name}</span><span aria-hidden="true">{index===tab?'✓':'→'}</span></button>)}</nav>
+  <nav aria-label="Разделы">{[0,1,3,2,4].map(index=><button key={index} aria-current={index===tab?'page':undefined} onClick={()=>{select(index);setOpen(false)}}><span>{sections[index]}</span><span aria-hidden="true">{index===tab?'✓':'→'}</span></button>)}</nav>
  </section></div>}
  </>
 }

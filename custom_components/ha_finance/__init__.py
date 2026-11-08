@@ -3,16 +3,18 @@ import asyncio
 from copy import deepcopy
 from datetime import timedelta
 from pathlib import Path
+from aiohttp import ClientError
 
 import voluptuous as vol
 from homeassistant.components import frontend, websocket_api
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 
 from .model import apply, due_events, migrate_budget_months
-from .payroll import calculate, migrate_worker_days, budget_schedule, export_calendar
+from .payroll import calculate, migrate_worker_days, budget_schedule, export_calendar, parse_remote_calendar
 
 DOMAIN = "ha_finance"
 
@@ -50,13 +52,14 @@ async def async_setup_entry(hass, entry):
         websocket_api.async_register_command(hass, ws_payroll)
         websocket_api.async_register_command(hass, ws_budget_schedule)
         websocket_api.async_register_command(hass, ws_calendar)
+        websocket_api.async_register_command(hass, ws_calendar_fetch)
         websocket_api.async_register_command(hass, ws_mutate)
         websocket_api.async_register_command(hass, ws_subscribe)
         hass.data["ha_finance_registered"] = True
     frontend.async_register_built_in_panel(
         hass, component_name="custom", sidebar_title="Финансы", sidebar_icon="mdi:wallet",
         frontend_url_path="ha-finance", require_admin=False,
-        config={"_panel_custom": {"name": "ha-finance-panel", "module_url": "/ha_finance_static/finance.js?v=0.5.0"}},
+        config={"_panel_custom": {"name": "ha-finance-panel", "module_url": "/ha_finance_static/finance.js?v=0.6.0"}},
     )
     entry.async_on_unload(async_track_time_interval(hass, remind, timedelta(minutes=1)))
     await remind()
@@ -159,5 +162,38 @@ async def ws_calendar(hass, connection, msg):
         result = export_calendar(msg["year"], hass.data[DOMAIN]["data"].get("calendar_overrides"))
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_input", str(err))
+        return
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): "ha_finance/calendar_fetch", vol.Required("year"): int})
+@websocket_api.async_response
+async def ws_calendar_fetch(hass, connection, msg):
+    if DOMAIN not in hass.data:
+        connection.send_error(msg["id"], "not_loaded", "Интеграция не загружена")
+        return
+    year = msg["year"]
+    if type(year) is not int or not 2024 <= year <= 2100:
+        connection.send_error(msg["id"], "invalid_input", "Год должен быть от 2024 до 2100")
+        return
+    try:
+        async with asyncio.timeout(20):
+            async with async_get_clientsession(hass).get("https://isdayoff.ru/api/getdata", params={"year":year,"cc":"ru"}, allow_redirects=False) as response:
+                if response.status != 200:
+                    raise ValueError(f"Сервис календаря недоступен или год не опубликован (HTTP {response.status})")
+                chunks=[]
+                size=0
+                while chunk := await response.content.read(1024):
+                    size+=len(chunk)
+                    if size>4096:
+                        raise ValueError("Сервис вернул неожиданный ответ")
+                    chunks.append(chunk)
+                body=b"".join(chunks)
+        result = parse_remote_calendar(year, body.decode("ascii"))
+    except (ValueError, UnicodeError) as err:
+        connection.send_error(msg["id"], "calendar_unavailable", str(err))
+        return
+    except (ClientError, TimeoutError):
+        connection.send_error(msg["id"], "calendar_unavailable", "Не удалось связаться с isdayoff.ru. Проверьте доступ в интернет или загрузите JSON вручную.")
         return
     connection.send_result(msg["id"], result)

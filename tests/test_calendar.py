@@ -39,3 +39,17 @@ class CalendarTests(unittest.TestCase):
             original=payroll.export_calendar(year)
             model.apply(self.data,'calendar_import',{'calendar':original})
             self.assertEqual(payroll.workdays_for_year(year),payroll.workdays_for_year(year,self.data['calendar_overrides']))
+
+    def test_remote_calendar_parser(self):
+        from datetime import date, timedelta
+        year=2026
+        current=date(year,1,1);body=''
+        while current.year==year:
+            body+='0' if current.isoformat() in payroll.WORKDAYS else '1'
+            current+=timedelta(days=1)
+        result=payroll.parse_remote_calendar(year,body)
+        self.assertFalse(result['confirmed'])
+        model.apply(self.data,'calendar_import',{'calendar':result})
+        self.assertEqual(payroll.workdays_for_year(year),payroll.workdays_for_year(year,self.data['calendar_overrides']))
+        for invalid in ['101', '<html>error</html>', '0'*365, body[:-1], body[:-1]+'2']:
+            with self.assertRaises(ValueError):payroll.parse_remote_calendar(year,invalid)

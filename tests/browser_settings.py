@@ -9,7 +9,7 @@ with sync_playwright() as p:
       const panel=document.createElement('ha-finance-panel');
       window.calls=[];
       panel.hass={connection:{subscribeMessage:async cb=>()=>{}},callWS:async msg=>{
-        if(msg.type==='ha_finance/calendar')return rule||{year:msg.year,confirmed:false,days_off:[],working_days:[]};
+        if(msg.type==='ha_finance/calendar_fetch'){if(window.failFetch)throw Error('Сервис недоступен');return {year:msg.year,confirmed:false,days_off:['2028-01-01'],working_days:[]}}if(msg.type==='ha_finance/calendar')return rule||{year:msg.year,confirmed:false,days_off:[],working_days:[]};
         if(msg.type==='ha_finance/mutate'){window.calls.push(msg);if(msg.action==='calendar_import')rule=msg.payload.calendar;if(msg.action==='calendar_reset')rule=undefined}return {deposits:[]};
       }};document.body.append(panel);
     }''')
@@ -19,6 +19,13 @@ with sync_playwright() as p:
     panel.get_by_role('combobox',name='Год календаря').select_option('2028')
     textarea=panel.locator('textarea.calendar-json')
     expect(textarea).to_have_value(__import__('re').compile('.*2028.*',__import__('re').S))
+    panel.get_by_role('button',name='Получить автоматически',exact=True).click()
+    expect(panel.get_by_role('status')).to_contain_text('Получено с isDayOff')
+    saved=textarea.input_value()
+    page.evaluate('window.failFetch=true')
+    panel.get_by_role('button',name='Получить автоматически',exact=True).click()
+    expect(panel.get_by_role('alert')).to_contain_text('Сервис недоступен')
+    expect(textarea).to_have_value(saved)
     textarea.fill('{broken')
     panel.get_by_role('button',name='Применить календарь').click()
     expect(panel.get_by_role('alert')).to_be_visible()

@@ -96,3 +96,23 @@ def budget_schedule(workers, year, month, overrides=None):
             for kind, label in [('salary','Зарплата'),('advance','Аванс')]:
                 result.append({'id':f"{worker['id']}:{kind}",'name':f"{worker['name']} · {label}",'date':estimate[f'{kind}_date'],'amount':estimate[kind]})
     return sorted(result,key=lambda payment:(payment['date'],payment['id']))
+
+
+def parse_remote_calendar(year, body):
+    """isDayOff getdata with default pre=0: one 0/1 per calendar day."""
+    if type(year) is not int or not 2024 <= year <= 2100:
+        raise ValueError("Некорректный год")
+    body=body.strip()
+    expected=366 if calendar.isleap(year) else 365
+    if len(body) != expected or any(value not in '01' for value in body):
+        raise ValueError("Сервис не вернул полный календарь года. Возможно, он ещё не опубликован.")
+    days_off=[];working=[]
+    current=date(year,1,1)
+    for value in body:
+        if value == '1':days_off.append(current.isoformat())
+        elif current.weekday()>=5:working.append(current.isoformat())
+        current+=timedelta(days=1)
+    statutory={f"{year}-01-{day:02d}" for day in range(1,9)} | {f"{year}-{day}" for day in ("02-23","03-08","05-01","05-09","06-12","11-04")}
+    if not statutory.issubset(set(days_off)):
+        raise ValueError("Ответ сервиса не содержит все федеральные праздники РФ")
+    return {'year':year,'confirmed':False,'days_off':days_off,'working_days':working}
