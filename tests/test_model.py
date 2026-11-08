@@ -83,4 +83,20 @@ class IncomeTests(unittest.TestCase):
         model.apply(self.data,'expense_save',{'deposit_id':self.id,'name':'Доход','amount':100,'date':'2026-11-08','paid':False,'kind':'income'})
         self.assertEqual(model.due_events(self.data,'2026-11-09'),[])
 
+class WorkerTests(unittest.TestCase):
+    def test_create_and_update_preserve_deposits(self):
+        data={"deposits": []}
+        payload={"name":"Иван", "income":10000000, "employment":"TK", "advance_day":25, "salary_day":10}
+        model.apply(data,"worker_save",payload)
+        self.assertEqual(data["workers"][0]["income"],10000000)
+        model.apply(data,"worker_save",{**payload,"worker_id":data["workers"][0]["id"],"income":12000000})
+        self.assertEqual(len(data["workers"]),1)
+        self.assertEqual(data["workers"][0]["income"],12000000)
+        self.assertEqual(data["deposits"],[])
+
+    def test_invalid_days_and_type(self):
+        payload={"name":"Иван", "income":100, "employment":"TK", "advance_day":25, "salary_day":10}
+        for values in [{"advance_day":0},{"salary_day":32},{"salary_day":1.5},{"advance_day":True},{"employment":"other"}]:
+            with self.assertRaises(ValueError):model.apply({"deposits":[]},"worker_save",{**payload,**values})
+
 if __name__=='__main__':unittest.main()

@@ -25,6 +25,23 @@ def totals(deposit):
 
 
 def apply(data, action, payload):
+    if action == "worker_save":
+        name = label(payload["name"])
+        income = amount(payload["income"])
+        if payload.get("employment") != "TK":
+            raise ValueError("Поддерживается только ТК")
+        days = [payload["advance_day"], payload["salary_day"]]
+        if any(type(day) is not int or not 1 <= day <= 31 for day in days):
+            raise ValueError("Число выплаты должно быть от 1 до 31")
+        workers = data.setdefault("workers", [])
+        worker = next((w for w in workers if w["id"] == payload.get("worker_id")), None)
+        if payload.get("worker_id") and worker is None:
+            raise ValueError("Работник не найден")
+        if worker is None:
+            worker = {"id": uuid4().hex}
+            workers.append(worker)
+        worker.update(name=name, income=income, employment="TK", advance_day=days[0], salary_day=days[1])
+        return
     deposits = data["deposits"]
     if action == "create":
         deposits.append({"id": uuid4().hex, "name": label(payload["name"]),

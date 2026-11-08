@@ -1,0 +1,42 @@
+import { useEffect, useState } from 'react';
+import type { Hass, Worker } from './types';
+import { Field, Metric, Modal } from './components';
+import { kopecks, money, today } from './finance';
+import { Pencil } from './action-sheet';
+
+type Estimate={workdays:number;first_workdays:number;second_workdays:number;advance:number;salary:number;advance_date:string;salary_date:string};
+const formatDate=(date:string)=>new Date(date+'T12:00:00').toLocaleDateString('ru-RU');
+export function Payroll({workers,hass}:{workers:Worker[];hass?:Hass}){
+ const [open,setOpen]=useState(false),[editing,setEditing]=useState<Worker>(),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const [selected,setSelected]=useState<string>(),[month,setMonth]=useState(today().slice(0,7)),[estimate,setEstimate]=useState<Estimate>(),[calculationError,setCalculationError]=useState('');
+ const worker=workers.find(w=>w.id===selected);
+ useEffect(()=>{
+  setEstimate(undefined);setCalculationError('');let active=true;
+  if(!worker||!hass)return;
+  const [year,m]=month.split('-').map(Number);
+  hass.callWS<Estimate>({type:'ha_finance/payroll',worker_id:worker.id,year,month:m}).then(result=>{if(active)setEstimate(result)}).catch(e=>{if(active)setCalculationError(String(e.message||e))});
+  return ()=>{active=false};
+ },[worker,hass,month]);
+ const start=(worker?:Worker)=>{setEditing(worker);setError('');setOpen(true)};
+ async function submit(event:React.FormEvent<HTMLFormElement>){
+  event.preventDefault();const form=new FormData(event.currentTarget);setBusy(true);setError('');
+  try{
+   if(!hass)throw Error('Для сохранения откройте панель в Home Assistant.');
+   await hass.callWS({type:'ha_finance/mutate',action:'worker_save',payload:{worker_id:editing?.id,name:form.get('name'),employment:form.get('employment'),income:kopecks(String(form.get('income'))),advance_day:Number(form.get('advance_day')),salary_day:Number(form.get('salary_day'))}});
+   setOpen(false);
+  }catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
+ }
+ return <section className="payroll">
+  {worker?<><header className="toolbar deposit-toolbar"><button className="icon-button" aria-label="Все работники" onClick={()=>setSelected(undefined)}>←</button><div className="toolbar-title"><h2>{worker.name}</h2></div><button className="icon-button" aria-label={`Изменить работника ${worker.name}`} onClick={()=>start(worker)}><Pencil/></button></header><Field label="Месяц работы" type="month" min="2025-01" max="2027-11" required value={month} onChange={e=>setMonth(e.target.value)}/>
+  {calculationError?<p className="error" role="alert">{calculationError}</p>:!estimate?<p className="muted">Расчёт…</p>:<><div className="salary-payments"><article className="worker-card"><Metric label="Оклад · за 1–15 число" value={estimate.advance}/><p className="payment-date">{formatDate(estimate.advance_date)}</p><span className="muted">{estimate.first_workdays} рабочих дней</span></article><article className="worker-card"><Metric label="Зарплата · за 16–конец месяца" value={estimate.salary}/><p className="payment-date">{formatDate(estimate.salary_date)}</p><span className="muted">{estimate.second_workdays} рабочих дней</span></article></div><p className="muted">{money(worker.income)} ÷ {estimate.workdays} раб. дн. × {estimate.first_workdays} раб. дн. = {money(estimate.advance)}</p><p className="muted salary-note">Расчёт за полностью отработанный месяц по федеральной пятидневке РФ. Без автоматического вычета НДФЛ, отпусков и больничных. Вторая выплата — в следующем месяце. Выплаты в нерабочие дни перенесены на предыдущий рабочий день.</p></>}
+  </>:workers.length===0?<div className="empty"><span className="empty-icon">₽</span><h2>Работники пока не указаны</h2><p>Добавьте работника, его доход и дни выплат.</p></div>:<div className="cards">{workers.map(worker=><article className="worker-card" key={worker.id}><header><h2><button className="worker-open" onClick={()=>setSelected(worker.id)}>{worker.name} <span aria-hidden="true">↗</span></button></h2><button className="icon-button" aria-label={`Изменить работника ${worker.name}`} onClick={()=>start(worker)}><Pencil/></button></header><button className="worker-body" aria-label={`Открыть работника ${worker.name}`} onClick={()=>setSelected(worker.id)}><span className="employment-badge">ТК</span><Metric label="Доход за месяц" value={worker.income}/><div className="worker-dates"><div><span>Число оклада</span><strong>{worker.advance_day}</strong></div><div><span>Число зарплаты</span><strong>{worker.salary_day}</strong></div></div></button></article>)}</div>}
+  {!worker&&<div className="expense-dock"><button className="primary" onClick={()=>start()}><span aria-hidden="true">＋</span> Указать работника</button></div>}
+  {open&&<Modal bottom title={editing?'Изменить работника':'Указать работника'} close={()=>{if(!busy)setOpen(false)}}>{error&&<p className="error" role="alert">{error}</p>}<form onSubmit={submit}>
+   <Field label="Наименование" name="name" required maxLength={150} defaultValue={editing?.name} autoFocus/>
+   <label className="field">Тип оформления<select name="employment" defaultValue="TK"><option value="TK">ТК</option></select></label>
+   <Field label="Доход, ₽" name="income" type="number" min="0" max="1000000000000" step="0.01" required defaultValue={editing?editing.income/100:undefined}/>
+   <div className="payment-days"><Field label="Число оклада" name="advance_day" type="number" min="1" max="31" step="1" required defaultValue={editing?.advance_day}/><Field label="Число зарплаты" name="salary_day" type="number" min="1" max="31" step="1" required defaultValue={editing?.salary_day}/></div>
+   <button className="primary" disabled={busy}>{busy?'Сохранение…':'Сохранить'}</button>
+  </form></Modal>}
+ </section>
+}
