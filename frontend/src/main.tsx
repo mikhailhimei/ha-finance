@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import './style.css';
+import panelStyles from './style.css?inline';
 
 import type { Expense, Data, Hass } from './types';
 import { money, kopecks, total, today } from './finance';
 import { Field, Metric, Modal } from './components';
-function App({hass}:{hass?:Hass}){
+import { Navigation } from './navigation';
+function App({hass,openSidebar=()=>{}}:{hass?:Hass;openSidebar?:()=>void}){
  const [data,setData]=useState<Data>({deposits:[]}),[tab,setTab]=useState(0),[selected,setSelected]=useState<string>(),[error,setError]=useState(''),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(!hass);
  const [dialog,setDialog]=useState<'create'|'edit'|'topup'|'expense'>(),[editing,setEditing]=useState<Expense>();
  useEffect(()=>{if(!hass)return;let unsubscribe:(()=>void)|undefined;let disposed=false;
@@ -15,12 +17,33 @@ function App({hass}:{hass?:Hass}){
  const d=data.deposits.find(d=>d.id===selected); const t=d&&total(d);
  async function mutate(action:string,payload:object){setBusy(true);setError('');try{if(!hass)throw Error('Это предпросмотр. Для сохранения откройте панель в Home Assistant.');await hass.callWS({type:'ha_finance/mutate',action,payload});setDialog(undefined)}catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}}
  function submit(e:React.FormEvent<HTMLFormElement>){e.preventDefault();const f=new FormData(e.currentTarget);try{if(dialog==='create'||dialog==='edit')void mutate(dialog==='create'?'create':'update',{deposit_id:d?.id,name:f.get('name'),principal:kopecks(String(f.get('amount')))});else if(dialog==='topup')void mutate('top_up',{deposit_id:d?.id,amount:kopecks(String(f.get('amount')))});else void mutate('expense_save',{deposit_id:d?.id,expense_id:editing?.id,name:f.get('name'),amount:kopecks(String(f.get('amount'))),date:f.get('date'),paid:f.get('paid')==='on'});}catch(e){setError(String(e))}}
- return <main className="finance"><header className="page-header"><div><span className="eyebrow">HOME ASSISTANT</span><h1>Финансы</h1></div><span className="shared">Общие данные дома</span></header><nav aria-label="Разделы">{['Учёт использования вкладов','Распределение бюджета','Заработная плата'].map((name,i)=><button key={name} className={tab===i?'active':''} onClick={()=>setTab(i)}>{name}</button>)}</nav>
+ return <main className="finance"><Navigation tab={tab} select={setTab} openSidebar={openSidebar}/>
+
  {error&&!dialog&&<p className="error" role="alert">{error}</p>}{!hass&&<p className="notice">Предпросмотр интерфейса · сохранение доступно в Home Assistant</p>}
  {tab!==0?<section className="empty"><h2>{tab===1?'Распределение бюджета':'Заработная плата'}</h2><p>Этот раздел появится на следующем этапе.</p></section>:!loaded?<p>Загрузка вкладов…</p>:!d?<><div className="section-heading"><div><h2>Мои вклады</h2><p>Планируйте расходы и следите за остатком</p></div><button className="primary" onClick={()=>setDialog('create')}>＋ Создать вклад</button></div>{data.deposits.length===0?<section className="empty"><span className="empty-icon">₽</span><h2>Всё начинается с первого вклада</h2><p>Добавьте сумму и запланируйте, на что она пойдёт.</p><button className="primary" onClick={()=>setDialog('create')}>Создать вклад</button></section>:<div className="cards">{data.deposits.map(deposit=>{const x=total(deposit);return <button className="card" key={deposit.id} onClick={()=>setSelected(deposit.id)}><h3>{deposit.name}<span>↗</span></h3><Metric label="Текущий остаток" value={x.balance}/><div className="small-metrics"><Metric label="Общая сумма" value={deposit.principal}/><Metric label="Оплачено" value={x.actual}/><Metric label="Ожидается" value={x.expected}/></div></button>})}</div>}</>:<><button className="back" onClick={()=>setSelected(undefined)}>← Все вклады</button><div className="section-heading"><div><h2>{d.name}</h2><p>Каждый платёж — под контролем</p></div><div className="actions"><button onClick={()=>setDialog('edit')}>Изменить</button><button className="primary" onClick={()=>setDialog('topup')}>＋ Пополнить</button></div></div><section className="overview"><div className="donut" role="img" aria-label={`Общая сумма ${money(d.principal)}, оплачено ${money(t!.actual)}`} style={{background:`conic-gradient(#578c73 ${Math.min(100,d.principal?t!.actual/d.principal*100:0)}%, #e8eee9 0)`}}><div><span>Общая сумма</span><strong>{money(d.principal)}</strong></div></div><div className="summary"><Metric label="Фактические расходы" value={t!.actual}/><Metric label="Ожидаемые расходы" value={t!.expected}/><Metric label="Текущий остаток" value={t!.balance}/><Metric label="Свободно после всех планов" value={t!.available}/>{t!.available<0&&<p className="error">Плановые расходы превышают остаток.</p>}</div></section><section className="expenses"><div className="section-heading"><div><h2>Куда пойдут деньги</h2><p>Отметьте платёж — остаток уменьшится автоматически</p></div><button onClick={()=>{setEditing(undefined);setDialog('expense')}}>＋ Добавить расход</button></div>{d.expenses.length===0?<p className="muted">Расходов пока нет.</p>:d.expenses.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(e=><div className="expense" key={e.id}><input type="checkbox" aria-label={`Оплачено: ${e.name}`} checked={e.paid} disabled={busy} onChange={ev=>void mutate('expense_paid',{deposit_id:d.id,expense_id:e.id,paid:ev.target.checked})}/><div className="expense-name"><strong>{e.name}</strong><span>{new Date(e.date+'T12:00:00').toLocaleDateString('ru-RU')} · {e.paid?'Оплачено':e.date<=today()?'Срок наступил':'Ожидается'}</span></div><strong className={e.paid?'paid':''}>−{money(e.amount)}</strong><button aria-label={`Изменить ${e.name}`} onClick={()=>{setEditing(e);setDialog('expense')}}>✎</button><button aria-label={`Удалить ${e.name}`} onClick={()=>{if(confirm('Удалить расход?'))void mutate('expense_delete',{deposit_id:d.id,expense_id:e.id})}}>×</button></div>)}</section><button className="danger" disabled={busy} onClick={()=>{if(confirm('Удалить вклад и все его расходы?'))void mutate('delete',{deposit_id:d.id})}}>Удалить вклад</button></>}
  {dialog&&<Modal title={{create:'Новый вклад',edit:'Изменить вклад',topup:'Пополнить вклад',expense:editing?'Изменить расход':'Новый расход'}[dialog]} close={()=>setDialog(undefined)}>{error&&<p className="error" role="alert">{error}</p>}<form onSubmit={submit}>{dialog!=='topup'&&<Field label="Название" name="name" maxLength={150} required defaultValue={dialog==='edit'?d?.name:dialog==='expense'?editing?.name:''} autoFocus/>}<Field label={dialog==='expense'?'Сумма расхода, ₽':dialog==='topup'?'Сумма пополнения, ₽':'Общая сумма вклада, ₽'} type="number" name="amount" min="0" max="1000000000000" step="0.01" required defaultValue={dialog==='edit'?d!.principal/100:dialog==='expense'&&editing?editing.amount/100:undefined}/>{dialog==='edit'&&<p className="muted">Общая сумма до вычета расходов. Оплаченные расходы сохранятся.</p>}{dialog==='expense'&&<><Field label="Дата платежа" type="date" name="date" required defaultValue={editing?.date||today()}/><label className="check"><input type="checkbox" name="paid" defaultChecked={editing?.paid}/> Уже оплачено</label></>}<button className="primary" disabled={busy}>{busy?'Сохранение…':'Сохранить'}</button></form></Modal>}
  </main>
 }
-class FinancePanel extends HTMLElement {private root?:Root; private current?:Hass;set hass(value:Hass){if(this.current?.connection===value.connection)return;this.current=value;this.render()}connectedCallback(){this.render()}disconnectedCallback(){this.root?.unmount();this.root=undefined}private render(){if(!this.isConnected)return;if(!document.querySelector('link[data-finance]')){const l=document.createElement('link');l.rel='stylesheet';l.href='/ha_finance_static/finance.css';l.dataset.finance='true';document.head.append(l)}this.root??=createRoot(this);this.root.render(<App hass={this.current}/>)} }
+class FinancePanel extends HTMLElement {
+ private root?:Root;
+ private current?:Hass;
+ private mount:HTMLDivElement;
+ constructor(){
+  super();
+  const shadow=this.attachShadow({mode:'open'});
+  const style=document.createElement('style');
+  style.textContent=panelStyles;
+  this.mount=document.createElement('div');
+  shadow.append(style,this.mount);
+ }
+ set hass(value:Hass){if(this.current?.connection===value.connection)return;this.current=value;this.render()}
+ connectedCallback(){this.render()}
+ disconnectedCallback(){this.root?.unmount();this.root=undefined}
+ private render(){
+  if(!this.isConnected)return;
+  this.root??=createRoot(this.mount);
+  this.root.render(<App hass={this.current} openSidebar={()=>this.dispatchEvent(new CustomEvent('hass-toggle-menu',{bubbles:true,composed:true}))}/>);
+ }
+}
 customElements.define('ha-finance-panel',FinancePanel);
 const devRoot=document.getElementById('root');if(devRoot)createRoot(devRoot).render(<App/>);
