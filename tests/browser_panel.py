@@ -20,7 +20,7 @@ with sync_playwright() as p:
       shadow.append(panel); document.body.style.margin='0';document.body.append(host);
     }''')
     panel = page.locator('ha-finance-panel')
-    panel.get_by_role('heading', name='Мои вклады').wait_for()
+    panel.get_by_role('heading', name='Мои вклады', exact=True).wait_for()
     assert panel.locator('.finance').evaluate("el=>getComputedStyle(el).backgroundColor") == 'rgb(246, 248, 245)'
     panel.get_by_role('button',name='Открыть меню Home Assistant').click()
     assert page.evaluate('window.menuEvents') == 1
@@ -28,7 +28,7 @@ with sync_playwright() as p:
     menu = panel.get_by_role('dialog',name='Разделы финансов')
     assert menu.bounding_box()['y'] > 400
     menu.get_by_role('button',name='Распределение бюджета').click()
-    panel.get_by_role('heading',name='Распределение бюджета',exact=True).wait_for()
+    panel.get_by_role('heading',name='Распределение бюджета',exact=True,level=1).wait_for()
     expect(menu).to_have_count(0)
     panel.get_by_role('button',name='Открыть разделы финансов').click()
     page.keyboard.press('Escape')

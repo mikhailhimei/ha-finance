@@ -25,7 +25,7 @@ export function Navigation({tab,select,openSidebar}:{tab:number;select:(tab:numb
  },[open]);
  return <><header className="toolbar">
   <button className="icon-button" aria-label="Открыть меню Home Assistant" onClick={openSidebar}><Burger/></button>
-  <div className="toolbar-title"><h1>Финансы</h1><span>{sections[tab]}</span></div>
+  <div className="toolbar-title"><h1>{tab===0?'Мои вклады':sections[tab]}</h1></div>
   <button ref={trigger} className="icon-button" aria-label="Открыть разделы финансов" aria-expanded={open} aria-haspopup="dialog" onClick={()=>setOpen(!open)}><Burger/></button>
  </header>
  {open&&<div className="navigation-backdrop" onClick={()=>setOpen(false)}><section ref={menu} className="section-menu" role="dialog" aria-modal="true" aria-label="Разделы финансов" onClick={e=>e.stopPropagation()}>
