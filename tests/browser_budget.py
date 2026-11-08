@@ -40,6 +40,7 @@ with sync_playwright() as p:
     expect(panel.locator('.budget-periods')).to_have_count(0)
     expect(panel.locator('.toolbar h1')).to_have_text('13.11.2026')
     expect(panel.locator('.summary .metric').first).to_contain_text('150')
+    expect(panel.get_by_text('Трат пока нет. Укажите, на что пойдут деньги.',exact=True)).to_have_count(0)
     panel.get_by_role('button',name='Добавить трату',exact=True).click()
     panel.get_by_label('Наименование',exact=True).fill('Здоровье')
     panel.get_by_label('Сумма, ₽',exact=True).fill('11000')

@@ -79,6 +79,7 @@ with sync_playwright() as p:
     page.evaluate('window.scrollTo(0,document.documentElement.scrollHeight)')
     last=panel.locator('.expense').last
     last.scroll_into_view_if_needed()
+    assert abs(panel.locator('.toolbar').bounding_box()['y'])<1
     dock=panel.locator('.expense-dock')
     assert last.bounding_box()['y']+last.bounding_box()['height'] <= dock.bounding_box()['y']
     expect(dock.get_by_role('button',name='Добавить',exact=True)).to_be_in_viewport()
