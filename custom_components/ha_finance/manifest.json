@@ -1,0 +1,1 @@
+{"domain":"ha_finance","name":"Финансы","version":"0.1.0","config_flow":true,"documentation":"https://github.com/mikhailhimei/ha-finance","codeowners":["@mikhailhimei"],"iot_class":"local_push","requirements":[]}
