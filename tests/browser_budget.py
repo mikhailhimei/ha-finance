@@ -48,7 +48,10 @@ with sync_playwright() as p:
     panel.get_by_role('button',name='Сохранить',exact=True).click()
     expect(panel.locator('.budget-expenses')).to_contain_text('Стоматолог')
     expect(panel.locator('.summary .metric').last).to_contain_text('139')
-    panel.get_by_role('button',name='Открыть категорию Здоровье',exact=True).click()
+    category_link=panel.get_by_role('button',name='Открыть категорию Здоровье',exact=True)
+    assert category_link.bounding_box()['width']>100
+    assert category_link.bounding_box()['height']<30
+    category_link.click()
     expect(panel.locator('.toolbar h1')).to_have_text('Здоровье')
     expect(panel.locator('.category-summary>.metric')).to_contain_text('11')
     panel.get_by_role('button',name='Добавить',exact=True).click()
