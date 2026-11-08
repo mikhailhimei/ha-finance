@@ -12,7 +12,7 @@ with sync_playwright() as p:
       const panel=document.createElement('ha-finance-panel');let cb;
       const data={deposits:[],workers:[]};window.calls=[];
       panel.hass={connection:{subscribeMessage:async callback=>{cb=callback;cb(structuredClone(data));return ()=>{}}},callWS:async msg=>{
-        if(msg.type==='ha_finance/payroll')return {workdays:15,first_workdays:5,second_workdays:10,advance:4000000,salary:8000000,advance_date:'2026-12-29',salary_date:'2026-12-14',salary_period:'2026-11',advance_period:'2026-12'};if(msg.type==='ha_finance/mutate'){window.calls.push(msg);if(msg.action==='worker_delete'){data.workers=data.workers.filter(w=>w.id!==msg.payload.worker_id);cb(structuredClone(data));return data;}const worker={...msg.payload,id:msg.payload.worker_id||'w1'};const i=data.workers.findIndex(w=>w.id===worker.id);if(i<0)data.workers.push(worker);else data.workers[i]=worker;cb(structuredClone(data))}return structuredClone(data)}};
+        if(msg.type==='ha_finance/payroll'&&data.workers.find(w=>w.id===msg.worker_id)?.employment==='fixed')return {kind:'fixed',payment:3000000,payment_date:'2026-11-13'};if(msg.type==='ha_finance/payroll')return {workdays:15,first_workdays:5,second_workdays:10,advance:4000000,salary:8000000,advance_date:'2026-12-29',salary_date:'2026-12-14',salary_period:'2026-11',advance_period:'2026-12'};if(msg.type==='ha_finance/mutate'){window.calls.push(msg);if(msg.action==='worker_delete'){data.workers=data.workers.filter(w=>w.id!==msg.payload.worker_id);cb(structuredClone(data));return data;}const worker={...msg.payload,id:msg.payload.worker_id||'w1'};const i=data.workers.findIndex(w=>w.id===worker.id);if(i<0)data.workers.push(worker);else data.workers[i]=worker;cb(structuredClone(data))}return structuredClone(data)}};
       document.body.append(panel);
     }''')
     panel=page.locator('ha-finance-panel')
@@ -24,8 +24,8 @@ with sync_playwright() as p:
     panel.get_by_role('button',name='Заработная плата',exact=True).click()
     panel.get_by_role('button',name='Указать работника',exact=True).click()
     sheet=panel.get_by_role('dialog',name='Указать работника')
-    expect(sheet.get_by_role('combobox',name='Тип оформления')).to_have_value('TK')
-    assert sheet.get_by_role('option').count()==1
+    expect(sheet.get_by_role('combobox',name='Тип дохода')).to_have_value('TK')
+    assert sheet.get_by_role('option').count()==2
     sheet.get_by_label('Наименование',exact=True).fill('Иван')
     sheet.get_by_label('Доход, ₽',exact=True).fill('100000')
     sheet.get_by_label('День аванса',exact=True).fill('25')
@@ -77,6 +77,22 @@ with sync_playwright() as p:
     panel.get_by_role('dialog',name='Удалить работника?',exact=True).get_by_role('button',name='Удалить',exact=True).click()
     expect(card).to_have_count(0)
     assert page.evaluate('window.calls.at(-1).action')=='worker_delete'
+    panel.get_by_role('button',name='Указать работника',exact=True).click()
+    sheet=panel.get_by_role('dialog',name='Указать работника')
+    sheet.get_by_role('combobox',name='Тип дохода').select_option('fixed')
+    expect(sheet.get_by_label('День зарплаты',exact=True)).to_have_count(0)
+    expect(sheet.get_by_label('День аванса',exact=True)).to_have_count(0)
+    sheet.get_by_label('Наименование',exact=True).fill('Аренда')
+    sheet.get_by_label('Доход, ₽',exact=True).fill('30000')
+    sheet.get_by_label('Дата дохода · число месяца',exact=True).fill('14')
+    sheet.get_by_role('button',name='Сохранить',exact=True).click()
+    card=panel.get_by_role('button',name='Аренда',exact=True)
+    expect(card).to_contain_text('Фиксированный доход')
+    expect(card).to_contain_text('13.11.2026')
+    card.click()
+    expect(panel.locator('.fixed-payment')).to_contain_text('13.11.2026')
+    expect(panel.locator('.fixed-payment')).to_contain_text('30')
+    expect(panel.locator('.salary-payments')).to_have_count(0)
     assert not errors,errors
     browser.close()
     print('PASS: create deposit bottom sheet, worker fields, TK selection, shared save payload, worker rendering and editing')

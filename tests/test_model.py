@@ -94,6 +94,18 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(data["workers"][0]["income"],12000000)
         self.assertEqual(data["deposits"],[])
 
+    def test_fixed_income_and_type_switch(self):
+        data={'deposits':[]}
+        payload={'name':'Аренда','income':3000000,'employment':'fixed','fixed_day':10}
+        model.apply(data,'worker_save',payload)
+        worker=data['workers'][0]
+        self.assertEqual(worker['fixed_day'],10)
+        self.assertNotIn('salary_day',worker)
+        model.apply(data,'worker_save',{**payload,'worker_id':worker['id'],'employment':'TK','advance_day':29,'salary_day':14})
+        self.assertNotIn('fixed_day',worker)
+        self.assertEqual(worker['salary_day'],14)
+        with self.assertRaises(ValueError):model.apply(data,'worker_save',{**payload,'fixed_day':32})
+
     def test_worker_delete(self):
         data={'deposits':[], 'workers':[{'id':'one'},{'id':'two'}]}
         model.apply(data,'worker_delete',{'worker_id':'one'})

@@ -50,3 +50,10 @@ class PayrollTests(unittest.TestCase):
         self.assertEqual(data['workers'][0],{'advance_day':29,'salary_day':14})
         self.assertFalse(payroll.migrate_worker_days(data))
         self.assertEqual(data['workers'][0]['salary_day'],14)
+
+    def test_fixed_income_does_not_prorate(self):
+        worker={'employment':'fixed','income':3000000,'fixed_day':14}
+        result=payroll.calculate(worker,2026,11)
+        self.assertEqual(result,{'kind':'fixed','payment':3000000,'payment_date':'2026-11-13'})
+        self.assertEqual(payroll.calculate({**worker,'fixed_day':31},2026,2)['payment_date'],'2026-02-27')
+        self.assertEqual(payroll.calculate({**worker,'fixed_day':10},2026,1)['payment_date'],'2025-12-30')

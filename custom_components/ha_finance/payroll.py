@@ -20,6 +20,9 @@ def payment_date(year, month, day):
 def calculate(worker, year, month):
     if type(year) is not int or type(month) is not int or not 1<=month<=12 or not 2025<=year<=2027:
         raise ValueError("Доступен производственный календарь 2025–2027")
+    if worker.get('employment') == 'fixed':
+        return {'kind':'fixed', 'payment':worker['income'],
+                'payment_date':payment_date(year,month,worker['fixed_day'])}
     def split(y, m):
         days=[day for day in CALENDAR[str(y)] if day.startswith(f'{y}-{m:02d}-')]
         first=sum(int(day[-2:])<=15 for day in days)
@@ -42,6 +45,7 @@ def migrate_worker_days(data):
     if data.get('payroll_day_schema') == 2:
         return False
     for worker in data.get('workers', []):
-        worker['salary_day'], worker['advance_day'] = worker['advance_day'], worker['salary_day']
+        if worker.get('employment') != 'fixed':
+            worker['salary_day'], worker['advance_day'] = worker['advance_day'], worker['salary_day']
     data['payroll_day_schema'] = 2
     return True

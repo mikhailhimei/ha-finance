@@ -52,7 +52,7 @@ async def async_setup_entry(hass, entry):
     frontend.async_register_built_in_panel(
         hass, component_name="custom", sidebar_title="Финансы", sidebar_icon="mdi:wallet",
         frontend_url_path="ha-finance", require_admin=False,
-        config={"_panel_custom": {"name": "ha-finance-panel", "module_url": "/ha_finance_static/finance.js?v=0.2.5"}},
+        config={"_panel_custom": {"name": "ha-finance-panel", "module_url": "/ha_finance_static/finance.js?v=0.2.6"}},
     )
     entry.async_on_unload(async_track_time_interval(hass, remind, timedelta(minutes=1)))
     await remind()

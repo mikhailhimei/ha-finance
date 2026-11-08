@@ -35,11 +35,12 @@ def apply(data, action, payload):
     if action == "worker_save":
         name = label(payload["name"])
         income = amount(payload["income"])
-        if payload.get("employment") != "TK":
-            raise ValueError("Поддерживается только ТК")
-        days = [payload["advance_day"], payload["salary_day"]]
+        employment = payload.get("employment")
+        if employment not in ("TK", "fixed"):
+            raise ValueError("Неизвестный тип дохода")
+        days = [payload.get("fixed_day")] if employment == "fixed" else [payload.get("advance_day"), payload.get("salary_day")]
         if any(type(day) is not int or not 1 <= day <= 31 for day in days):
-            raise ValueError("Число выплаты должно быть от 1 до 31")
+            raise ValueError("День выплаты должен быть от 1 до 31")
         workers = data.setdefault("workers", [])
         worker = next((w for w in workers if w["id"] == payload.get("worker_id")), None)
         if payload.get("worker_id") and worker is None:
@@ -47,7 +48,14 @@ def apply(data, action, payload):
         if worker is None:
             worker = {"id": uuid4().hex}
             workers.append(worker)
-        worker.update(name=name, income=income, employment="TK", advance_day=days[0], salary_day=days[1])
+        worker.update(name=name, income=income, employment=employment)
+        if employment == "fixed":
+            worker.update(fixed_day=days[0])
+            worker.pop("advance_day", None)
+            worker.pop("salary_day", None)
+        else:
+            worker.update(advance_day=days[0], salary_day=days[1])
+            worker.pop("fixed_day", None)
         return
     deposits = data["deposits"]
     if action == "create":
