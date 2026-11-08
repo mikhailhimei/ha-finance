@@ -81,6 +81,8 @@ with sync_playwright() as p:
     expect(dock.get_by_role('button',name='Добавить',exact=True)).to_be_in_viewport()
     dock.get_by_role('button',name='Добавить',exact=True).click()
     expect(panel.get_by_role('dialog',name='Добавить',exact=True)).to_be_visible()
+    sheet_box=panel.get_by_role('dialog',name='Добавить',exact=True).bounding_box()
+    assert abs(sheet_box['y']+sheet_box['height']-844)<2
     panel.get_by_role('button',name='Закрыть',exact=True).click()
     dock.get_by_role('button',name='Добавить',exact=True).click()
     dialog=panel.get_by_role('dialog',name='Добавить',exact=True)

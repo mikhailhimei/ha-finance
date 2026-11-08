@@ -68,6 +68,7 @@ with sync_playwright() as p:
     panel.get_by_role('dialog',name='Клонировать бюджет',exact=True).get_by_label('Месяц и год',exact=True).fill('2026-12')
     panel.get_by_role('button',name='Сохранить',exact=True).click()
     expect(panel.get_by_role('button',name='Декабрь 2026',exact=True)).to_be_visible()
+    expect(panel.locator('.hold-card').first).to_have_attribute('aria-label','Декабрь 2026')
     panel.get_by_role('button',name='Действия: Ноябрь 2026',exact=True).click()
     panel.get_by_role('dialog',name='Ноябрь 2026',exact=True).get_by_role('button',name='Удалить',exact=True).click()
     confirmation=panel.get_by_role('dialog',name='Удалить бюджет?',exact=True)
@@ -81,6 +82,7 @@ with sync_playwright() as p:
     panel.get_by_role('dialog',name='Удалить бюджет?',exact=True).get_by_role('button',name='Удалить',exact=True).click()
     expect(card).to_have_count(0)
     expect(panel.get_by_role('button',name='Декабрь 2026',exact=True)).to_be_visible()
+    expect(panel.locator('.hold-card').first).to_have_attribute('aria-label','Декабрь 2026')
     assert not errors,errors
     browser.close()
     print('PASS: budget creation, income periods, expense/comment save, individual and combined balances, deletion, back navigation')

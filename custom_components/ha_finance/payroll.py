@@ -18,10 +18,10 @@ def payment_date(year, month, day):
 
 
 def calculate(worker, year, month):
-    if type(year) is not int or type(month) is not int or not 1<=month<=12 or not 2025<=year<=2027:
-        raise ValueError("Доступен производственный календарь 2025–2027")
+    if type(year) is not int or type(month) is not int or not 1<=month<=12 or not 2025<=year<=2035:
+        raise ValueError("Доступен производственный календарь 2025–2035")
     if worker.get('employment') == 'fixed':
-        return {'kind':'fixed', 'payment':worker['income'],
+        return {'calendar_provisional':year>2027,'kind':'fixed', 'payment':worker['income'],
                 'payment_date':payment_date(year,month,worker['fixed_day'])}
     def split(y, m):
         days=[day for day in CALENDAR[str(y)] if day.startswith(f'{y}-{m:02d}-')]
@@ -31,7 +31,7 @@ def calculate(worker, year, month):
     previous_year,previous_month=(year-1,12) if month==1 else (year,month-1)
     count,first,advance=split(year,month)
     previous_count,previous_first,previous_advance=split(previous_year,previous_month)
-    return {'workdays':count,'first_workdays':first,
+    return {'calendar_provisional':year>2027,'workdays':count,'first_workdays':first,
             'second_workdays':previous_count-previous_first,
             'salary_workdays':previous_count,'salary_first_workdays':previous_first,
             'advance':advance,'salary':worker['income']-previous_advance,

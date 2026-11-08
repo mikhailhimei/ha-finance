@@ -3,8 +3,8 @@ import json
 from datetime import date,timedelta
 from pathlib import Path
 import holidays
-result={"source":"python-holidays 0.108, Russia, federal five-day workweek", "years":{}}
-for year in range(2024,2028):
+result={"source":"python-holidays 0.108, Russia, federal five-day workweek", "confirmed_through":2027, "years":{}}
+for year in range(2024,2036):
     calendar=holidays.RU(years=year)
     day=date(year,1,1)
     working=[]
