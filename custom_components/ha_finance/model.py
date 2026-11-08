@@ -26,6 +26,43 @@ def totals(deposit):
 
 
 def apply(data, action, payload):
+    if action == "calendar_import":
+        calendar_data = payload["calendar"]
+        if not isinstance(calendar_data, dict):
+            raise ValueError("Календарь должен быть объектом JSON")
+        year = calendar_data.get("year")
+        if type(year) is not int or not 2024 <= year <= 2100:
+            raise ValueError("Год должен быть от 2024 до 2100")
+        fields = {}
+        for field in ("days_off", "working_days"):
+            values = calendar_data.get(field)
+            if not isinstance(values, list) or len(values) > 366:
+                raise ValueError(f"{field}: укажите массив дат")
+            for value in values:
+                if not isinstance(value, str) or date.fromisoformat(value).year != year or date.fromisoformat(value).isoformat() != value:
+                    raise ValueError("Даты должны быть в формате ГГГГ-ММ-ДД выбранного года")
+            if len(set(values)) != len(values):
+                raise ValueError("Даты не должны повторяться")
+            fields[field] = sorted(values)
+        if set(fields["days_off"]) & set(fields["working_days"]):
+            raise ValueError("Дата не может быть одновременно рабочей и выходной")
+        statutory = {f"{year}-01-{day:02d}" for day in range(1,9)} | {f"{year}-{day}" for day in ("02-23","03-08","05-01","05-09","06-12","11-04")}
+        if not statutory.issubset(set(fields["days_off"])):
+            raise ValueError("В days_off должны быть все федеральные праздники, включая 1–8 января")
+        if type(calendar_data.get("confirmed", False)) is not bool:
+            raise ValueError("confirmed должен быть true или false")
+        import calendar as month_calendar
+        for month in range(1,13):
+            if not any((date(year,month,day).weekday()<5 and date(year,month,day).isoformat() not in fields["days_off"]) or date(year,month,day).isoformat() in fields["working_days"] for day in range(1,month_calendar.monthrange(year,month)[1]+1)):
+                raise ValueError("В каждом месяце должен быть хотя бы один рабочий день")
+        data.setdefault("calendar_overrides", {})[str(year)] = {"year":year,**fields,"confirmed":calendar_data.get("confirmed",False)}
+        return
+    if action == "calendar_reset":
+        year = payload["year"]
+        if type(year) is not int or not 2024 <= year <= 2100:
+            raise ValueError("Некорректный год")
+        data.get("calendar_overrides", {}).pop(str(year),None)
+        return
     if action == "debt_create":
         name = label(payload["name"])
         principal, remaining = amount(payload["principal"]), amount(payload["remaining"])

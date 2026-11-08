@@ -12,7 +12,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .model import apply, due_events, migrate_budget_months
-from .payroll import calculate, migrate_worker_days, budget_schedule
+from .payroll import calculate, migrate_worker_days, budget_schedule, export_calendar
 
 DOMAIN = "ha_finance"
 
@@ -49,13 +49,14 @@ async def async_setup_entry(hass, entry):
         websocket_api.async_register_command(hass, ws_get)
         websocket_api.async_register_command(hass, ws_payroll)
         websocket_api.async_register_command(hass, ws_budget_schedule)
+        websocket_api.async_register_command(hass, ws_calendar)
         websocket_api.async_register_command(hass, ws_mutate)
         websocket_api.async_register_command(hass, ws_subscribe)
         hass.data["ha_finance_registered"] = True
     frontend.async_register_built_in_panel(
         hass, component_name="custom", sidebar_title="Финансы", sidebar_icon="mdi:wallet",
         frontend_url_path="ha-finance", require_admin=False,
-        config={"_panel_custom": {"name": "ha-finance-panel", "module_url": "/ha_finance_static/finance.js?v=0.4.1"}},
+        config={"_panel_custom": {"name": "ha-finance-panel", "module_url": "/ha_finance_static/finance.js?v=0.5.0"}},
     )
     entry.async_on_unload(async_track_time_interval(hass, remind, timedelta(minutes=1)))
     await remind()
@@ -127,7 +128,7 @@ async def ws_payroll(hass, connection, msg):
         connection.send_error(msg["id"], "not_found", "Работник не найден")
         return
     try:
-        result = calculate(worker, msg["year"], msg["month"])
+        result = calculate(worker, msg["year"], msg["month"], hass.data[DOMAIN]["data"].get("calendar_overrides"))
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_input", str(err))
         return
@@ -141,7 +142,21 @@ async def ws_budget_schedule(hass, connection, msg):
         connection.send_error(msg["id"], "not_loaded", "Интеграция не загружена")
         return
     try:
-        result = budget_schedule(hass.data[DOMAIN]["data"].get("workers", []), msg["year"], msg["month"])
+        result = budget_schedule(hass.data[DOMAIN]["data"].get("workers", []), msg["year"], msg["month"], hass.data[DOMAIN]["data"].get("calendar_overrides"))
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_input", str(err))
+        return
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): "ha_finance/calendar", vol.Required("year"): int})
+@websocket_api.async_response
+async def ws_calendar(hass, connection, msg):
+    if DOMAIN not in hass.data:
+        connection.send_error(msg["id"], "not_loaded", "Интеграция не загружена")
+        return
+    try:
+        result = export_calendar(msg["year"], hass.data[DOMAIN]["data"].get("calendar_overrides"))
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_input", str(err))
         return

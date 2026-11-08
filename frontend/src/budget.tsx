@@ -18,7 +18,7 @@ export function Budgets({data,hass,selectTab,openSidebar,loading=false}:{loading
  const budget=data.budgets?.find(b=>b.id===selected?.split('/')[0]);
  const month=budget?.month||today().slice(0,7);
  useEffect(()=>{setDialog(undefined);setActions(undefined);window.scrollTo(0,0)},[selected]);
- useEffect(()=>{let active=true;setLoaded(false);setError('');if(!hass)return;const [year,m]=month.split('-').map(Number);hass.callWS<Payment[]>({type:'ha_finance/budget_schedule',year,month:m}).then(p=>{if(active){setPayments(p);setLoaded(true)}}).catch(e=>{if(active)setError(String(e.message||e))});return ()=>{active=false}},[hass,month,data.workers]);
+ useEffect(()=>{let active=true;setLoaded(false);setError('');if(!hass)return;const [year,m]=month.split('-').map(Number);hass.callWS<Payment[]>({type:'ha_finance/budget_schedule',year,month:m}).then(p=>{if(active){setPayments(p);setLoaded(true)}}).catch(e=>{if(active)setError(String(e.message||e))});return ()=>{active=false}},[hass,month,data.workers,data.calendar_overrides]);
  const view=selected?.split('/')[1];
  const groups=Object.values(payments.reduce<Record<string,{date:string;payments:Payment[];amount:number}>>((result,p)=>{
   const group=result[p.date]??={date:p.date,payments:[],amount:0};group.payments.push(p);group.amount+=p.amount;return result;
@@ -35,7 +35,7 @@ export function Budgets({data,hass,selectTab,openSidebar,loading=false}:{loading
  const renderExpense=(e:Budget['expenses'][number])=><div className="expense" key={e.id}><div className="expense-name"><strong>{e.name}</strong>{e.comment&&<span className="expense-comment">{e.comment}</span>}{sources.length>1&&<span>{payments.find(p=>p.id===e.payment_id)?.name||'Источник дохода недоступен'}</span>}</div><strong>−{money(e.amount)}</strong><button aria-label={`Действия с тратой ${e.name}`} onClick={()=>setActions(e)}><Pencil/></button></div>;
  return <section ref={surface} className="budget-page">
  {budget?<header className="toolbar deposit-toolbar"><button className="icon-button" aria-label={view?"Назад к доходам":"Все бюджеты"} onClick={()=>navigate(undefined)}>←</button><div className="toolbar-title"><h1>{title}</h1></div><span className="header-spacer"/></header>:<Navigation tab={1} select={selectTab} openSidebar={openSidebar}/>}
- {budget&&Number(month.slice(0,4))>2027&&<p className="notice">Предварительный календарь: будущие переносы выходных ещё не учтены.</p>}
+ {budget&&(data.calendar_overrides?.[month.slice(0,4)]?!data.calendar_overrides[month.slice(0,4)].confirmed:Number(month.slice(0,4))>2027)&&<p className="notice">Предварительный календарь: будущие переносы выходных ещё не учтены.</p>}
  {error&&<p className="error" role="alert">{error}</p>}
  {!budget?<>{loading?<Skeleton variant="cards"/>:!data.budgets?.length?<div className="empty"><h2>Бюджетов пока нет</h2><p>Создайте бюджет и распределите будущие доходы.</p></div>:<div className="cards">{[...data.budgets].reverse().map(b=><HoldCard className="card" key={b.id} name={b.name} open={()=>navigate(b.id)} onHold={()=>setBudgetActions(b)}><h3>{b.name}<span>↗</span></h3></HoldCard>)}</div>}<div className="expense-dock"><button className="primary" disabled={loading} onClick={()=>setDialog('budget')}>Создать бюджет</button></div></>:<>
 
