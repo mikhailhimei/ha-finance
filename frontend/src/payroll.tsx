@@ -59,7 +59,7 @@ export function Payroll({workers,hass,selectTab,openSidebar}:{workers:Worker[];h
    <Field label="Наименование" name="name" required maxLength={150} defaultValue={editing?.name} autoFocus/>
    <label className="field">Тип оформления<select name="employment" defaultValue="TK"><option value="TK">ТК</option></select></label>
    <Field label="Доход, ₽" name="income" type="number" min="0" max="1000000000000" step="0.01" required defaultValue={editing?editing.income/100:undefined}/>
-   <div className="payment-days"><Field label="День оклада" name="salary_day" type="number" min="1" max="31" step="1" required defaultValue={editing?.salary_day}/><Field label="День аванса" name="advance_day" type="number" min="1" max="31" step="1" required defaultValue={editing?.advance_day}/></div>
+   <div className="payment-days"><Field label="День зарплаты" name="salary_day" type="number" min="1" max="31" step="1" required defaultValue={editing?.salary_day}/><Field label="День аванса" name="advance_day" type="number" min="1" max="31" step="1" required defaultValue={editing?.advance_day}/></div>
    <button className="primary" disabled={busy}>{busy?'Сохранение…':'Сохранить'}</button>
   </form></Modal>}
  </section>

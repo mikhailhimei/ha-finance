@@ -29,7 +29,7 @@ with sync_playwright() as p:
     sheet.get_by_label('Наименование',exact=True).fill('Иван')
     sheet.get_by_label('Доход, ₽',exact=True).fill('100000')
     sheet.get_by_label('День аванса',exact=True).fill('25')
-    sheet.get_by_label('День оклада',exact=True).fill('10')
+    sheet.get_by_label('День зарплаты',exact=True).fill('10')
     sheet.get_by_role('button',name='Сохранить',exact=True).click()
     expect(panel.get_by_role('heading',name='Иван',exact=True)).to_be_visible()
     assert page.evaluate('window.calls[0].payload.income')==10000000
