@@ -28,14 +28,14 @@ with sync_playwright() as p:
     assert sheet.get_by_role('option').count()==1
     sheet.get_by_label('Наименование',exact=True).fill('Иван')
     sheet.get_by_label('Доход, ₽',exact=True).fill('100000')
-    sheet.get_by_label('Число аванса',exact=True).fill('25')
-    sheet.get_by_label('Число зарплаты',exact=True).fill('10')
+    sheet.get_by_label('День аванса',exact=True).fill('25')
+    sheet.get_by_label('День оклада',exact=True).fill('10')
     sheet.get_by_role('button',name='Сохранить',exact=True).click()
     expect(panel.get_by_role('heading',name='Иван',exact=True)).to_be_visible()
     assert page.evaluate('window.calls[0].payload.income')==10000000
     panel.get_by_role('button',name='Изменить работника Иван').click()
     sheet=panel.get_by_role('dialog',name='Изменить работника')
-    expect(sheet.get_by_label('Число аванса',exact=True)).to_have_value('25')
+    expect(sheet.get_by_label('День аванса',exact=True)).to_have_value('25')
     sheet.get_by_label('Доход, ₽',exact=True).fill('120000')
     sheet.get_by_role('button',name='Сохранить',exact=True).click()
     expect(panel.locator('.worker-card')).to_contain_text('120')
@@ -47,6 +47,18 @@ with sync_playwright() as p:
     expect(panel.locator('.toolbar h1')).to_have_text('Иван')
     expect(panel.locator('.toolbar').get_by_role('button',name='Все работники')).to_be_visible()
     expect(panel.locator('.toolbar').get_by_role('button',name='Изменить работника Иван')).to_be_visible()
+    page.go_back()
+    expect(panel.get_by_role('button',name='Указать работника',exact=True)).to_be_visible()
+    page.go_forward()
+    expect(panel.locator('.toolbar h1')).to_have_text('Иван')
+    panel.locator('section.payroll').evaluate('''el=>{
+      const touch=(x,y)=>new Touch({identifier:1,target:el,clientX:x,clientY:y});
+      el.dispatchEvent(new TouchEvent('touchstart',{bubbles:true,touches:[touch(20,200)]}));
+      el.dispatchEvent(new TouchEvent('touchmove',{bubbles:true,cancelable:true,touches:[touch(150,205)]}));
+      el.dispatchEvent(new TouchEvent('touchend',{bubbles:true,changedTouches:[touch(150,205)]}));
+    }''')
+    expect(panel.get_by_role('button',name='Указать работника',exact=True)).to_be_visible()
+    panel.get_by_role('button',name='Открыть работника Иван',exact=True).click()
     expect(panel.get_by_label('Месяц выплат',exact=True)).to_be_visible()
     expect(panel.locator('.salary-payments')).to_contain_text('29.12.2026')
     expect(panel.locator('.salary-payments')).to_contain_text('14.12.2026')

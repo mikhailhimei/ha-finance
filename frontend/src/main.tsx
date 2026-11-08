@@ -18,7 +18,7 @@ function App({hass,openSidebar=()=>{}}:{hass?:Hass;openSidebar?:()=>void}){
  const [kind,setKind]=useState<'expense'|'income'>('expense');
  const [deleting,setDeleting]=useState<Expense>();
  const [deletingDeposit,setDeletingDeposit]=useState<string>();
- const {selected,navigate:setSelected,surface}=useDepositNavigation(Boolean(dialog||sheet||deleting||deletingDeposit));
+ const {selected,navigate:setSelected,surface}=useDepositNavigation(Boolean(tab!==0||dialog||sheet||deleting||deletingDeposit));
  useEffect(()=>{setDialog(undefined);setSheet(undefined);setDeleting(undefined)},[selected]);
  useEffect(()=>{if(!hass)return;let unsubscribe:(()=>void)|undefined;let disposed=false;
  hass.callWS<Data>({type:'ha_finance/get'}).then(d=>{if(!disposed){setData(d);setLoaded(true)}}).catch(e=>setError(String(e.message||e)));

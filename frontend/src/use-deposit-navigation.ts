@@ -1,26 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
 
-const key='haFinanceDeposit';
-function currentDeposit():string|undefined{
+function currentDeposit(key:string):string|undefined{
  const entry=window.history.state?.[key];
  return entry?.path===location.pathname && typeof entry.id==='string'?entry.id:undefined;
 }
 
 /** Keep detail navigation in browser history for system Back and edge swipes. */
-export function useDepositNavigation(blocked:boolean){
- const [selected,setSelected]=useState<string|undefined>(currentDeposit);
+export function useDepositNavigation(blocked:boolean,key='haFinanceDeposit'){
+ const [selected,setSelected]=useState<string|undefined>(()=>currentDeposit(key));
  const surface=useRef<HTMLElement>(null);
  useEffect(()=>{
-  const pop=()=>setSelected(currentDeposit());
+  const pop=()=>setSelected(currentDeposit(key));
   window.addEventListener('popstate',pop);
   return ()=>window.removeEventListener('popstate',pop);
- },[]);
+ },[key]);
  function navigate(id:string|undefined){
   if(id===selected)return;
   if(id){
    window.history.pushState({...window.history.state,[key]:{id,path:location.pathname}},'');
    setSelected(id);
-  }else if(currentDeposit()){
+  }else if(currentDeposit(key)){
    window.history.back();
   }else setSelected(undefined);
  }
@@ -55,6 +54,6 @@ export function useDepositNavigation(blocked:boolean){
    element.removeEventListener('touchstart',begin);element.removeEventListener('touchmove',move);
    element.removeEventListener('touchend',end);element.removeEventListener('touchcancel',cancel);
   };
- },[selected,blocked]);
+ },[selected,blocked,key]);
  return {selected,navigate,surface};
 }
