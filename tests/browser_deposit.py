@@ -17,10 +17,13 @@ with sync_playwright() as p:
     card=panel.locator('.card')
     expect(card).to_contain_text('Свободно после всех планов')
     assert card.locator('.metric').first.inner_text().replace('\xa0','').find('243000')>=0
-    expect(card).not_to_contain_text('Оплачено')
-    expect(card).not_to_contain_text('Ожидается')
+    expect(card).to_contain_text('Оплачено')
+    expect(card).to_contain_text('Ожидается')
     card.click()
     expect(panel.locator('.toolbar h1')).to_have_text('Вклад озон')
+    metrics=panel.locator('.summary .metric')
+    assert metrics.count()==4
+    assert len({round(m.bounding_box()['y']) for m in metrics.all()})==1
     expect(panel.get_by_text('Куда пойдут деньги')).to_have_count(0)
     expect(panel.get_by_role('button',name='Удалить вклад',exact=True)).to_have_count(0)
     panel.get_by_role('button',name='Действия со вкладом').click()
