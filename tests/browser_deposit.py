@@ -39,7 +39,11 @@ with sync_playwright() as p:
     expect(panel.locator('.toolbar h1')).to_have_text('Вклад озон')
     metrics=panel.locator('.summary .metric')
     assert metrics.count()==4
-    assert len({round(m.bounding_box()['y']) for m in metrics.all()})==1
+    assert len({round(m.bounding_box()['y']) for m in metrics.all()})==2
+    assert metrics.first.locator('strong').evaluate('el=>parseFloat(getComputedStyle(el).fontSize)')>=21
+    header=panel.locator('.deposit-toolbar').bounding_box()
+    title=panel.locator('.deposit-toolbar .toolbar-title').bounding_box()
+    assert abs((title['x']+title['width']/2)-(header['x']+header['width']/2))<1
     expect(panel.get_by_text('Куда пойдут деньги')).to_have_count(0)
     expect(panel.get_by_role('button',name='Удалить вклад',exact=True)).to_have_count(0)
     panel.get_by_role('button',name='Действия со вкладом').click()
