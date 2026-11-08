@@ -16,11 +16,12 @@ def label(value):
 
 
 def totals(deposit):
-    actual = sum(e["amount"] for e in deposit["expenses"] if e["paid"])
-    expected = sum(e["amount"] for e in deposit["expenses"] if not e["paid"])
-    return {"principal": deposit["principal"], "actual": actual, "expected": expected,
-            "balance": deposit["principal"] - actual,
-            "available": deposit["principal"] - actual - expected}
+    income = sum(e["amount"] for e in deposit["expenses"] if e.get("kind") == "income" and e["paid"])
+    principal = deposit["principal"] + income
+    actual = sum(e["amount"] for e in deposit["expenses"] if e.get("kind", "expense") == "expense" and e["paid"])
+    expected = sum(e["amount"] for e in deposit["expenses"] if e.get("kind", "expense") == "expense" and not e["paid"])
+    return {"principal": principal, "actual": actual, "expected": expected,
+            "balance": principal - actual, "available": principal - actual - expected}
 
 
 def apply(data, action, payload):
@@ -39,6 +40,9 @@ def apply(data, action, payload):
     elif action == "delete":
         deposits.remove(deposit)
     elif action == "expense_save":
+        kind = payload.get("kind", "expense")
+        if kind not in ("expense", "income"):
+            raise ValueError("Неизвестный тип операции")
         due = date.fromisoformat(payload["date"]).isoformat()
         if type(payload["paid"]) is not bool:
             raise ValueError("Некорректный статус платежа")
@@ -50,7 +54,7 @@ def apply(data, action, payload):
             deposit["expenses"].append(expense)
         if expense.get("date") != due:
             expense["notified_date"] = None
-        expense.update(name=label(payload["name"]), amount=amount(payload["amount"]), date=due, paid=payload["paid"])
+        expense.update(kind=kind, name=label(payload["name"]), amount=amount(payload["amount"]), date=due, paid=payload["paid"])
     elif action in ("expense_paid", "expense_delete"):
         expense = next((e for e in deposit["expenses"] if e["id"] == payload["expense_id"]), None)
         if expense is None:
@@ -69,7 +73,7 @@ def due_events(data, today):
     events = []
     for deposit in data["deposits"]:
         for expense in deposit["expenses"]:
-            if not expense["paid"] and expense["date"] <= today and expense.get("notified_date") != expense["date"]:
+            if expense.get("kind", "expense") == "expense" and not expense["paid"] and expense["date"] <= today and expense.get("notified_date") != expense["date"]:
                 events.append({"deposit_id": deposit["id"], "deposit_name": deposit["name"],
                                "expense_id": expense["id"], "expense_name": expense["name"],
                                "amount": expense["amount"] / 100, "currency": "RUB", "due_date": expense["date"]})
