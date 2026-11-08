@@ -19,6 +19,18 @@ with sync_playwright() as p:
     assert card.locator('.metric').first.inner_text().replace('\xa0','').find('243000')>=0
     expect(card).to_contain_text('Оплачено')
     expect(card).to_contain_text('Ожидается')
+    bounds=card.bounding_box()
+    page.mouse.move(bounds['x']+50,bounds['y']+40)
+    page.mouse.down()
+    page.wait_for_timeout(700)
+    page.mouse.up()
+    expect(panel.locator('.card-actions').get_by_role('button',name='Удалить',exact=True)).to_be_visible()
+    expect(panel.get_by_role('heading',name='Мои вклады')).to_be_visible()
+    panel.locator('.card-actions').get_by_role('button',name='Удалить',exact=True).click()
+    expect(panel.get_by_role('dialog',name='Удалить вклад?')).to_be_visible()
+    panel.get_by_role('dialog',name='Удалить вклад?').get_by_role('button',name='Отмена',exact=True).click()
+    assert page.evaluate('window.calls.length')==0
+    panel.locator('.card-actions').get_by_role('button',name='Отмена',exact=True).click()
     card.click()
     page.go_back()
     expect(panel.get_by_role('heading',name='Мои вклады')).to_be_visible()
