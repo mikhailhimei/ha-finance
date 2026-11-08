@@ -49,7 +49,7 @@ def apply(data, action, payload):
         if source is None:
             raise ValueError("Бюджет не найден")
         month = payload["month"]
-        if not isinstance(month, str) or not re.fullmatch(r"(202[5-9]|203[0-5])-(0[1-9]|1[0-2])", month):
+        if not isinstance(month, str) or not re.fullmatch(r"(202[5-9]|20[3-9][0-9]|2100)-(0[1-9]|1[0-2])", month):
             raise ValueError("Выберите месяц бюджета")
         data["budgets"].append({"id":uuid4().hex,"name":budget_name(month),"month":month,
                                 "expenses":[{**e,"id":uuid4().hex,"month":month} for e in source["expenses"]]})
@@ -63,7 +63,7 @@ def apply(data, action, payload):
         return
     if action == "budget_create":
         month = payload["month"]
-        if not isinstance(month, str) or not re.fullmatch(r"(202[5-9]|203[0-5])-(0[1-9]|1[0-2])", month):
+        if not isinstance(month, str) or not re.fullmatch(r"(202[5-9]|20[3-9][0-9]|2100)-(0[1-9]|1[0-2])", month):
             raise ValueError("Выберите месяц бюджета")
         data.setdefault("budgets", []).append({"id":uuid4().hex,"name":budget_name(month),"month":month,"expenses":[]})
         return
@@ -80,7 +80,7 @@ def apply(data, action, payload):
         if payload.get("expense_id") and expense is None:
             raise ValueError("Трата не найдена")
         month = payload["month"]
-        if not isinstance(month, str) or not re.fullmatch(r"(202[5-9]|203[0-5])-(0[1-9]|1[0-2])", month):
+        if not isinstance(month, str) or not re.fullmatch(r"(202[5-9]|20[3-9][0-9]|2100)-(0[1-9]|1[0-2])", month):
             raise ValueError("Некорректный месяц бюджета")
         if budget.get("month") and budget["month"] != month:
             raise ValueError("Трата должна относиться к месяцу бюджета")

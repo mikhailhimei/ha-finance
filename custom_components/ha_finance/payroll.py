@@ -18,8 +18,8 @@ def payment_date(year, month, day):
 
 
 def calculate(worker, year, month):
-    if type(year) is not int or type(month) is not int or not 1<=month<=12 or not 2025<=year<=2035:
-        raise ValueError("Доступен производственный календарь 2025–2035")
+    if type(year) is not int or type(month) is not int or not 1<=month<=12 or not 2025<=year<=2100:
+        raise ValueError("Доступен производственный календарь 2025–2100")
     if worker.get('employment') == 'fixed':
         return {'calendar_provisional':year>2027,'kind':'fixed', 'payment':worker['income'],
                 'payment_date':payment_date(year,month,worker['fixed_day'])}

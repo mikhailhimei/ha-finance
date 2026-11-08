@@ -31,7 +31,7 @@ class PayrollTests(unittest.TestCase):
         self.assertEqual(result['advance_date'],'2026-02-27')
 
     def test_unsupported_calendar_is_explicit(self):
-        for year,month in [(2036,1),(2026,13)]:
+        for year,month in [(2101,1),(2026,13)]:
             with self.assertRaises(ValueError):payroll.calculate(self.worker,year,month)
 
     def test_december_payment_dates_and_periods(self):
@@ -62,3 +62,8 @@ class PayrollTests(unittest.TestCase):
         result=payroll.calculate(self.worker,2030,6)
         self.assertTrue(result['calendar_provisional'])
         self.assertTrue(result['salary_date'].startswith('2030-06'))
+
+    def test_year_2100_supported_and_provisional(self):
+        result=payroll.calculate(self.worker,2100,12)
+        self.assertTrue(result['calendar_provisional'])
+        self.assertTrue(result['salary_date'].startswith('2100-12'))
