@@ -13,7 +13,7 @@ with sync_playwright() as p:
       panel.hass={connection:{subscribeMessage:async c=>{cb=c;c(structuredClone(data));return ()=>{}}},callWS:async msg=>{
         if(msg.type==='ha_finance/budget_schedule')return [{id:'w:salary',name:'Миша · Зарплата',date:'2026-11-13',amount:10000000},{id:'f:fixed',name:'Аренда',date:'2026-11-06',amount:3000000}];
         if(msg.type==='ha_finance/mutate'){
-          if(msg.action==='budget_create')data.budgets.push({id:'b',name:msg.payload.name,expenses:[]});
+          if(msg.action==='budget_create')data.budgets.push({id:'b',name:'Ноябрь 2026',month:msg.payload.month,expenses:[]});
           if(msg.action==='budget_expense_save')data.budgets[0].expenses.push({...msg.payload,id:'e'});
           if(msg.action==='budget_expense_delete')data.budgets[0].expenses=[];
           cb(structuredClone(data));
@@ -24,11 +24,12 @@ with sync_playwright() as p:
     panel.get_by_role('button',name='Открыть разделы финансов').click()
     panel.get_by_role('button',name='Распределение бюджета',exact=True).click()
     panel.get_by_role('button',name='Создать бюджет',exact=True).click()
-    panel.get_by_label('Наименование',exact=True).fill('Дом')
+    panel.get_by_label('Месяц и год',exact=True).fill('2026-11')
     panel.get_by_role('button',name='Сохранить',exact=True).click()
     panel.locator('.card').click()
     expect(panel.locator('.toolbar')).to_have_count(1)
-    expect(panel.locator('.toolbar h1')).to_have_text('Дом')
+    expect(panel.locator('.toolbar h1')).to_have_text('Ноябрь 2026')
+    expect(panel.get_by_label('Месяц выплат',exact=True)).to_have_count(0)
     expect(panel.locator('.budget-periods button').first).to_contain_text('Посмотреть общий')
     panel.locator('.budget-periods button').filter(has_text='Миша').click()
     panel.get_by_role('button',name='Добавить трату',exact=True).click()

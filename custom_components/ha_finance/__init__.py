@@ -11,7 +11,7 @@ from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from .model import apply, due_events
+from .model import apply, due_events, migrate_budget_months
 from .payroll import calculate, migrate_worker_days, budget_schedule
 
 DOMAIN = "ha_finance"
@@ -20,7 +20,9 @@ DOMAIN = "ha_finance"
 async def async_setup_entry(hass, entry):
     store = Store(hass, 1, DOMAIN)
     data = await store.async_load() or {"deposits": []}
-    if migrate_worker_days(data):
+    workers_changed = migrate_worker_days(data)
+    budgets_changed = migrate_budget_months(data, dt_util.now().strftime("%Y-%m"))
+    if workers_changed or budgets_changed:
         await store.async_save(data)
     lock = asyncio.Lock()
     listeners = set()
@@ -53,7 +55,7 @@ async def async_setup_entry(hass, entry):
     frontend.async_register_built_in_panel(
         hass, component_name="custom", sidebar_title="Финансы", sidebar_icon="mdi:wallet",
         frontend_url_path="ha-finance", require_admin=False,
-        config={"_panel_custom": {"name": "ha-finance-panel", "module_url": "/ha_finance_static/finance.js?v=0.3.0"}},
+        config={"_panel_custom": {"name": "ha-finance-panel", "module_url": "/ha_finance_static/finance.js?v=0.3.1"}},
     )
     entry.async_on_unload(async_track_time_interval(hass, remind, timedelta(minutes=1)))
     await remind()

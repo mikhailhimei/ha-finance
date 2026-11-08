@@ -27,7 +27,10 @@ def totals(deposit):
 
 def apply(data, action, payload):
     if action == "budget_create":
-        data.setdefault("budgets", []).append({"id":uuid4().hex,"name":label(payload["name"]),"expenses":[]})
+        month = payload["month"]
+        if not isinstance(month, str) or not re.fullmatch(r"202[5-7]-(0[1-9]|1[0-2])", month):
+            raise ValueError("Выберите месяц бюджета")
+        data.setdefault("budgets", []).append({"id":uuid4().hex,"name":budget_name(month),"month":month,"expenses":[]})
         return
     if action in ("budget_expense_save", "budget_expense_delete"):
         budget = next((b for b in data.get("budgets", []) if b["id"] == payload["budget_id"]), None)
@@ -44,6 +47,8 @@ def apply(data, action, payload):
         month = payload["month"]
         if not isinstance(month, str) or not re.fullmatch(r"202[5-7]-(0[1-9]|1[0-2])", month):
             raise ValueError("Некорректный месяц бюджета")
+        if budget.get("month") and budget["month"] != month:
+            raise ValueError("Трата должна относиться к месяцу бюджета")
         comment = payload.get("comment", "")
         if not isinstance(comment, str) or len(comment) > 1000:
             raise ValueError("Комментарий должен быть до 1000 символов")
@@ -143,3 +148,28 @@ def due_events(data, today):
                                "amount": expense["amount"] / 100, "currency": "RUB", "due_date": expense["date"]})
                 expense["notified_date"] = expense["date"]
     return events
+
+
+MONTHS = ("Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь")
+
+def budget_name(month):
+    year, number = month.split("-")
+    return f"{MONTHS[int(number)-1]} {year}"
+
+
+def migrate_budget_months(data, default_month):
+    changed = False
+    budgets = []
+    for budget in data.get("budgets", []):
+        if budget.get("month"):
+            budgets.append(budget)
+            continue
+        changed = True
+        months = sorted({e["month"] for e in budget["expenses"]}) or [default_month]
+        for index, month in enumerate(months):
+            budgets.append({"id":budget["id"] if index == 0 else uuid4().hex,
+                            "name":budget_name(month),"month":month,
+                            "expenses":[e for e in budget["expenses"] if e["month"] == month]})
+    if changed:
+        data["budgets"] = budgets
+    return changed
