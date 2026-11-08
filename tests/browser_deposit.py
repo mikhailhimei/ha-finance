@@ -20,6 +20,22 @@ with sync_playwright() as p:
     expect(card).to_contain_text('Оплачено')
     expect(card).to_contain_text('Ожидается')
     card.click()
+    page.go_back()
+    expect(panel.get_by_role('heading',name='Мои вклады')).to_be_visible()
+    page.go_forward()
+    expect(panel.locator('.toolbar h1')).to_have_text('Вклад озон')
+    def swipe(x1,y1,x2,y2):
+        panel.locator('main').evaluate('''(el,p) => {
+          const touch=(x,y)=>new Touch({identifier:1,target:el,clientX:x,clientY:y});
+          el.dispatchEvent(new TouchEvent('touchstart',{bubbles:true,touches:[touch(p[0],p[1])]}));
+          el.dispatchEvent(new TouchEvent('touchmove',{bubbles:true,cancelable:true,touches:[touch(p[2],p[3])]}));
+          el.dispatchEvent(new TouchEvent('touchend',{bubbles:true,changedTouches:[touch(p[2],p[3])]}));
+        }''',[x1,y1,x2,y2])
+    swipe(10,200,15,400)
+    expect(panel.locator('.toolbar h1')).to_have_text('Вклад озон')
+    swipe(10,200,140,205)
+    expect(panel.get_by_role('heading',name='Мои вклады')).to_be_visible()
+    card.click()
     expect(panel.locator('.toolbar h1')).to_have_text('Вклад озон')
     metrics=panel.locator('.summary .metric')
     assert metrics.count()==4
