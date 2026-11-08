@@ -1,5 +1,6 @@
 """Pure finance rules. All amounts are integer kopecks, never floats."""
 from datetime import date
+import re
 from uuid import uuid4
 
 
@@ -25,6 +26,37 @@ def totals(deposit):
 
 
 def apply(data, action, payload):
+    if action == "budget_create":
+        data.setdefault("budgets", []).append({"id":uuid4().hex,"name":label(payload["name"]),"expenses":[]})
+        return
+    if action in ("budget_expense_save", "budget_expense_delete"):
+        budget = next((b for b in data.get("budgets", []) if b["id"] == payload["budget_id"]), None)
+        if budget is None:
+            raise ValueError("Бюджет не найден")
+        expense = next((e for e in budget["expenses"] if e["id"] == payload.get("expense_id")), None)
+        if action == "budget_expense_delete":
+            if expense is None:
+                raise ValueError("Трата не найдена")
+            budget["expenses"].remove(expense)
+            return
+        if payload.get("expense_id") and expense is None:
+            raise ValueError("Трата не найдена")
+        month = payload["month"]
+        if not isinstance(month, str) or not re.fullmatch(r"202[5-7]-(0[1-9]|1[0-2])", month):
+            raise ValueError("Некорректный месяц бюджета")
+        comment = payload.get("comment", "")
+        if not isinstance(comment, str) or len(comment) > 1000:
+            raise ValueError("Комментарий должен быть до 1000 символов")
+        payment_id = payload["payment_id"]
+        valid_sources = {f"{w['id']}:{kind}" for w in data.get("workers", []) for kind in (["fixed"] if w.get("employment") == "fixed" else ["salary", "advance"])}
+        if payment_id not in valid_sources and not (expense and expense["payment_id"] == payment_id):
+            raise ValueError("Выберите источник дохода")
+        fields = {"name":label(payload["name"]),"amount":amount(payload["amount"]),"comment":comment.strip(),"month":month,"payment_id":payment_id}
+        if expense is None:
+            expense = {"id":uuid4().hex}
+            budget["expenses"].append(expense)
+        expense.update(fields)
+        return
     if action == "worker_delete":
         workers = data.get("workers", [])
         worker = next((w for w in workers if w["id"] == payload["worker_id"]), None)

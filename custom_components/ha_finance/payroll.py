@@ -49,3 +49,15 @@ def migrate_worker_days(data):
             worker['salary_day'], worker['advance_day'] = worker['advance_day'], worker['salary_day']
     data['payroll_day_schema'] = 2
     return True
+
+
+def budget_schedule(workers, year, month):
+    result=[]
+    for worker in workers:
+        estimate=calculate(worker,year,month)
+        if estimate.get('kind') == 'fixed':
+            result.append({'id':f"{worker['id']}:fixed",'name':worker['name'], 'date':estimate['payment_date'],'amount':estimate['payment']})
+        else:
+            for kind, label in [('salary','Зарплата'),('advance','Аванс')]:
+                result.append({'id':f"{worker['id']}:{kind}",'name':f"{worker['name']} · {label}",'date':estimate[f'{kind}_date'],'amount':estimate[kind]})
+    return sorted(result,key=lambda payment:(payment['date'],payment['id']))

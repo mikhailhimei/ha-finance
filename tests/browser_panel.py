@@ -14,7 +14,7 @@ with sync_playwright() as p:
       const host = document.createElement('div');
       const shadow = host.attachShadow({mode:'open'});
       const panel = document.createElement('ha-finance-panel');
-      panel.hass = {callWS:async()=>({deposits:[]}), connection:{subscribeMessage:async cb=>{cb({deposits:[]});return ()=>{}}}};
+      panel.hass = {callWS:async msg=>msg.type==='ha_finance/budget_schedule'?[]:({deposits:[]}), connection:{subscribeMessage:async cb=>{cb({deposits:[]});return ()=>{}}}};
       window.menuEvents=0;
       document.addEventListener('hass-toggle-menu',()=>window.menuEvents++);
       shadow.append(panel); document.body.style.margin='0';document.body.append(host);
