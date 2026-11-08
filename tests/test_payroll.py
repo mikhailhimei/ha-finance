@@ -14,9 +14,9 @@ class PayrollTests(unittest.TestCase):
         self.assertEqual(result['workdays'],15)
         self.assertEqual(result['first_workdays'],4)
         self.assertEqual(result['advance'],2666667)
-        self.assertEqual(result['salary'],7333333)
+        self.assertEqual(result['salary'],5000000)
         self.assertEqual(result['advance_date'],'2026-01-23')
-        self.assertEqual(result['salary_date'],'2026-02-10')
+        self.assertEqual(result['salary_date'],'2025-12-30')
 
     def test_transferred_working_saturday(self):
         self.assertIn('2025-11-01',payroll.WORKDAYS)
@@ -26,9 +26,27 @@ class PayrollTests(unittest.TestCase):
 
     def test_amounts_sum_exactly_and_february_clamps(self):
         result=payroll.calculate({**self.worker,'income':10000001,'advance_day':31},2026,2)
-        self.assertEqual(result['advance']+result['salary'],10000001)
+        previous=payroll.calculate({**self.worker,'income':10000001},2026,1)
+        self.assertEqual(previous['advance']+result['salary'],10000001)
         self.assertEqual(result['advance_date'],'2026-02-27')
 
     def test_unsupported_calendar_is_explicit(self):
-        for year,month in [(2028,1),(2026,13),(2027,12)]:
+        for year,month in [(2028,1),(2026,13)]:
             with self.assertRaises(ValueError):payroll.calculate(self.worker,year,month)
+
+    def test_december_payment_dates_and_periods(self):
+        result=payroll.calculate({**self.worker,'advance_day':29,'salary_day':14},2026,12)
+        self.assertEqual(result['salary_date'],'2026-12-14')
+        self.assertEqual(result['advance_date'],'2026-12-29')
+        self.assertEqual(result['salary_period'],'2026-11')
+        self.assertEqual(result['advance_period'],'2026-12')
+        self.assertEqual(result['salary'],5500000)
+        self.assertEqual(result['advance'],5000000)
+        self.assertEqual(payroll.calculate(self.worker,2027,12)['salary_period'],'2027-11')
+
+    def test_migration_preserves_entered_days_once(self):
+        data={'workers':[{'advance_day':14,'salary_day':29}]}
+        self.assertTrue(payroll.migrate_worker_days(data))
+        self.assertEqual(data['workers'][0],{'advance_day':29,'salary_day':14})
+        self.assertFalse(payroll.migrate_worker_days(data))
+        self.assertEqual(data['workers'][0]['salary_day'],14)
