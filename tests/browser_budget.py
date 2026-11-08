@@ -15,7 +15,7 @@ with sync_playwright() as p:
         if(msg.type==='ha_finance/mutate'){
           if(msg.action==='budget_create')data.budgets.push({id:'b',name:'Ноябрь 2026',month:msg.payload.month,expenses:[]});
           if(msg.action==='budget_expense_save')data.budgets[0].expenses.push({...msg.payload,id:'e'});
-          if(msg.action==='budget_expense_delete')data.budgets[0].expenses=[];
+          if(msg.action==='budget_delete')data.budgets=[];if(msg.action==='budget_expense_delete')data.budgets[0].expenses=[];
           cb(structuredClone(data));
         }return structuredClone(data);
       }};document.body.append(panel);
@@ -46,6 +46,18 @@ with sync_playwright() as p:
     expect(panel.locator('.summary .metric').last).to_contain_text('130')
     page.go_back()
     expect(panel.get_by_role('button',name='Создать бюджет',exact=True)).to_be_visible()
+    card=panel.get_by_role('button',name='Ноябрь 2026',exact=True)
+    bounds=card.bounding_box()
+    page.mouse.move(bounds['x']+30,bounds['y']+30)
+    page.mouse.down();page.wait_for_timeout(700);page.mouse.up()
+    confirmation=panel.get_by_role('dialog',name='Удалить бюджет?',exact=True)
+    expect(confirmation).to_contain_text('все его траты')
+    confirmation.get_by_role('button',name='Отмена',exact=True).click()
+    expect(card).to_be_visible()
+    card.click(button='right')
+    panel.get_by_role('dialog',name='Удалить бюджет?',exact=True).get_by_role('button',name='Удалить',exact=True).click()
+    expect(card).to_have_count(0)
+    expect(panel.get_by_role('heading',name='Бюджетов пока нет')).to_be_visible()
     assert not errors,errors
     browser.close()
     print('PASS: budget creation, income periods, expense/comment save, individual and combined balances, deletion, back navigation')

@@ -39,6 +39,15 @@ class BudgetTests(unittest.TestCase):
         self.assertFalse(model.migrate_budget_months(data,'2026-12'))
         with self.assertRaises(ValueError):model.apply(self.data,'budget_expense_save',{**self.payload,'month':'2026-12'})
 
+    def test_delete_whole_budget_preserves_other_data(self):
+        model.apply(self.data,'budget_expense_save',self.payload)
+        model.apply(self.data,'budget_create',{'month':'2026-12'})
+        model.apply(self.data,'budget_delete',{'budget_id':self.budget['id']})
+        self.assertEqual(len(self.data['budgets']),1)
+        self.assertEqual(self.data['budgets'][0]['month'],'2026-12')
+        self.assertEqual(len(self.data['workers']),2)
+        with self.assertRaises(ValueError):model.apply(self.data,'budget_delete',{'budget_id':'missing'})
+
     def test_validation(self):
         for change in [{'amount':-1},{'month':'2026-13'},{'payment_id':'missing'},{'comment':'x'*1001}]:
             with self.assertRaises(ValueError):model.apply(self.data,'budget_expense_save',{**self.payload,**change})

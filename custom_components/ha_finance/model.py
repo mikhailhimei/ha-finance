@@ -26,6 +26,13 @@ def totals(deposit):
 
 
 def apply(data, action, payload):
+    if action == "budget_delete":
+        budgets = data.get("budgets", [])
+        budget = next((b for b in budgets if b["id"] == payload["budget_id"]), None)
+        if budget is None:
+            raise ValueError("Бюджет не найден")
+        budgets.remove(budget)
+        return
     if action == "budget_create":
         month = payload["month"]
         if not isinstance(month, str) or not re.fullmatch(r"202[5-7]-(0[1-9]|1[0-2])", month):
