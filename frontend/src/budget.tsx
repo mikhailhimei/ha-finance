@@ -4,11 +4,12 @@ import { Field, Metric, Modal } from './components';
 import { Navigation } from './navigation';
 import { kopecks, money, today } from './finance';
 import { Pencil, ActionSheet } from './action-sheet';
+import { Skeleton } from './skeleton';
 import { HoldCard } from './hold-card';
 import { useDepositNavigation } from './use-deposit-navigation';
 
 type Payment={id:string;name:string;date:string;amount:number};
-export function Budgets({data,hass,selectTab,openSidebar}:{data:Data;hass?:Hass;selectTab:(tab:number)=>void;openSidebar:()=>void}){
+export function Budgets({data,hass,selectTab,openSidebar,loading=false}:{loading?:boolean;data:Data;hass?:Hass;selectTab:(tab:number)=>void;openSidebar:()=>void}){
  const [dialog,setDialog]=useState<'budget'|'expense'|'clone'>(),[payments,setPayments]=useState<Payment[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false);
  const [budgetActions,setBudgetActions]=useState<Budget>(),[cloneSource,setCloneSource]=useState<Budget>();
  const [deletingBudget,setDeletingBudget]=useState<Budget>();
@@ -35,9 +36,9 @@ export function Budgets({data,hass,selectTab,openSidebar}:{data:Data;hass?:Hass;
  return <section ref={surface} className="budget-page">
  {budget?<header className="toolbar deposit-toolbar"><button className="icon-button" aria-label={view?"Назад к доходам":"Все бюджеты"} onClick={()=>navigate(undefined)}>←</button><div className="toolbar-title"><h1>{title}</h1></div><span className="header-spacer"/></header>:<Navigation tab={1} select={selectTab} openSidebar={openSidebar}/>}
  {error&&<p className="error" role="alert">{error}</p>}
- {!budget?<>{!data.budgets?.length?<div className="empty"><h2>Бюджетов пока нет</h2><p>Создайте бюджет и распределите будущие доходы.</p></div>:<div className="cards">{data.budgets.map(b=><HoldCard className="card" key={b.id} name={b.name} open={()=>navigate(b.id)} onHold={()=>setBudgetActions(b)}><h3>{b.name}<span>↗</span></h3></HoldCard>)}</div>}<div className="expense-dock"><button className="primary" onClick={()=>setDialog('budget')}>Создать бюджет</button></div></>:<>
+ {!budget?<>{loading?<Skeleton variant="cards"/>:!data.budgets?.length?<div className="empty"><h2>Бюджетов пока нет</h2><p>Создайте бюджет и распределите будущие доходы.</p></div>:<div className="cards">{data.budgets.map(b=><HoldCard className="card" key={b.id} name={b.name} open={()=>navigate(b.id)} onHold={()=>setBudgetActions(b)}><h3>{b.name}<span>↗</span></h3></HoldCard>)}</div>}<div className="expense-dock"><button className="primary" disabled={loading} onClick={()=>setDialog('budget')}>Создать бюджет</button></div></>:<>
 
- {!loaded?<p className="muted">Загрузка доходов…</p>:!view?<div className="budget-periods"><button onClick={()=>navigate(`${budget.id}/all`)}>Посмотреть общий<strong>{money(payments.reduce((s,p)=>s+p.amount,0)-monthExpenses.reduce((s,e)=>s+e.amount,0))}</strong></button>{groups.map(g=><button key={g.date} onClick={()=>navigate(`${budget.id}/${g.date}`)}><span>{new Date(g.date+'T12:00:00').toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit'})} · {g.payments.map(p=>p.name).join(', ')}</span><strong>{money(g.amount-monthExpenses.filter(e=>g.payments.some(p=>p.id===e.payment_id)).reduce((sum,e)=>sum+e.amount,0))}</strong></button>)}</div>:<>
+ {!loaded?<Skeleton variant={view?'overview':'periods'} count={4}/>:!view?<div className="budget-periods"><button onClick={()=>navigate(`${budget.id}/all`)}>Посмотреть общий<strong>{money(payments.reduce((s,p)=>s+p.amount,0)-monthExpenses.reduce((s,e)=>s+e.amount,0))}</strong></button>{groups.map(g=><button key={g.date} onClick={()=>navigate(`${budget.id}/${g.date}`)}><span>{new Date(g.date+'T12:00:00').toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit'})} · {g.payments.map(p=>p.name).join(', ')}</span><strong>{money(g.amount-monthExpenses.filter(e=>g.payments.some(p=>p.id===e.payment_id)).reduce((sum,e)=>sum+e.amount,0))}</strong></button>)}</div>:<>
  <section className="overview budget-overview"><div className="donut" role="img" aria-label={`Всего доход ${money(income)}, запланировано ${money(spent)}`} style={{background:`conic-gradient(#578c73 ${Math.min(100,income?spent/income*100:0)}%, #e8eee9 0)`}}><div><span>Доход всего</span><strong>{money(income)}</strong></div></div><div className="summary"><Metric label="Общие доходы" value={income}/><Metric label="Расходы по плану" value={spent}/><Metric label="Свободные деньги" value={income-spent}/></div></section>
  {spent>income&&<p className="error">Расходы превышают доход.</p>}
  <div className="budget-expenses">{view==='all'?<>{groups.map(g=>{
