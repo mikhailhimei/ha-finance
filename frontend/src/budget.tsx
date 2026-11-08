@@ -5,6 +5,7 @@ import { Navigation } from './navigation';
 import { kopecks, money, today } from './finance';
 import { Pencil, ActionSheet } from './action-sheet';
 import { Skeleton } from './skeleton';
+import { BudgetCategory } from './budget-category';
 import { HoldCard } from './hold-card';
 import { useDepositNavigation } from './use-deposit-navigation';
 
@@ -12,13 +13,15 @@ type Payment={id:string;name:string;date:string;amount:number};
 export function Budgets({data,hass,selectTab,openSidebar,loading=false}:{loading?:boolean;data:Data;hass?:Hass;selectTab:(tab:number)=>void;openSidebar:()=>void}){
  const [dialog,setDialog]=useState<'budget'|'expense'|'clone'>(),[payments,setPayments]=useState<Payment[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false);
  const [budgetActions,setBudgetActions]=useState<Budget>(),[cloneSource,setCloneSource]=useState<Budget>();
+ const [categoryBlocked,setCategoryBlocked]=useState(false);
  const [deletingBudget,setDeletingBudget]=useState<Budget>();
  const [editExpense,setEditExpense]=useState<Budget['expenses'][number]>(),[actions,setActions]=useState<Budget['expenses'][number]>();
- const {selected,navigate,surface}=useDepositNavigation(Boolean(dialog||actions||deletingBudget||budgetActions),'haFinanceBudget');
+ const {selected,navigate,surface}=useDepositNavigation(Boolean(dialog||actions||deletingBudget||budgetActions||categoryBlocked),'haFinanceBudget');
  const budget=data.budgets?.find(b=>b.id===selected?.split('/')[0]);
  const month=budget?.month||today().slice(0,7);
  useEffect(()=>{setDialog(undefined);setActions(undefined);window.scrollTo(0,0)},[selected]);
  useEffect(()=>{let active=true;setLoaded(false);setError('');if(!hass)return;const [year,m]=month.split('-').map(Number);hass.callWS<Payment[]>({type:'ha_finance/budget_schedule',year,month:m}).then(p=>{if(active){setPayments(p);setLoaded(true)}}).catch(e=>{if(active)setError(String(e.message||e))});return ()=>{active=false}},[hass,month,data.workers,data.calendar_overrides]);
+ const category=budget?.expenses.find(e=>e.id===selected?.split('/')[2]);
  const view=selected?.split('/')[1];
  const groups=Object.values(payments.reduce<Record<string,{date:string;payments:Payment[];amount:number}>>((result,p)=>{
   const group=result[p.date]??={date:p.date,payments:[],amount:0};group.payments.push(p);group.amount+=p.amount;return result;
@@ -32,7 +35,8 @@ export function Budgets({data,hass,selectTab,openSidebar,loading=false}:{loading
  const spent=expenses.reduce((sum,e)=>sum+e.amount,0);
  async function mutate(action:string,payload:object){setBusy(true);setError('');try{if(!hass)throw Error('Откройте панель в Home Assistant');await hass.callWS({type:'ha_finance/mutate',action,payload});setDialog(undefined)}catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}}
  function submit(event:React.FormEvent<HTMLFormElement>){event.preventDefault();const form=new FormData(event.currentTarget);try{if(dialog==='clone')void mutate('budget_clone',{budget_id:cloneSource!.id,month:form.get('month')});else if(dialog==='budget')void mutate('budget_create',{month:form.get('month')});else void mutate('budget_expense_save',{budget_id:budget!.id,expense_id:editExpense?.id,name:form.get('name'),amount:kopecks(String(form.get('amount'))),comment:form.get('comment'),month,payment_id:editExpense?.payment_id||(sources.length===1?sources[0].id:form.get('payment_id'))})}catch(e){setError(String(e))}}
- const renderExpense=(e:Budget['expenses'][number])=><div className="expense" key={e.id}><div className="expense-name"><strong>{e.name}</strong>{e.comment&&<span className="expense-comment">{e.comment}</span>}{sources.length>1&&<span>{payments.find(p=>p.id===e.payment_id)?.name||'Источник дохода недоступен'}</span>}</div><strong>−{money(e.amount)}</strong><button aria-label={`Действия с тратой ${e.name}`} onClick={()=>setActions(e)}><Pencil/></button></div>;
+ const renderExpense=(e:Budget['expenses'][number])=><div className="expense" key={e.id}><div className="expense-name"><button className="expense-category-link" aria-label={`Открыть категорию ${e.name}`} onClick={()=>navigate(`${budget!.id}/${view}/${e.id}`)}>{e.name}<span aria-hidden="true"> ↗</span></button>{e.comment&&<span className="expense-comment">{e.comment}</span>}{sources.length>1&&<span>{payments.find(p=>p.id===e.payment_id)?.name||'Источник дохода недоступен'}</span>}</div><strong>−{money(e.amount)}</strong><button aria-label={`Действия с тратой ${e.name}`} onClick={()=>setActions(e)}><Pencil/></button></div>;
+ if(category&&budget)return <BudgetCategory budgetId={budget.id} category={category} hass={hass} back={()=>navigate(undefined)} surface={surface} setBlocked={setCategoryBlocked}/>;
  return <section ref={surface} className="budget-page">
  {budget?<header className="toolbar deposit-toolbar"><button className="icon-button" aria-label={view?"Назад к доходам":"Все бюджеты"} onClick={()=>navigate(undefined)}>←</button><div className="toolbar-title"><h1>{title}</h1></div><span className="header-spacer"/></header>:<Navigation tab={1} select={selectTab} openSidebar={openSidebar}/>}
  {budget&&(data.calendar_overrides?.[month.slice(0,4)]?!data.calendar_overrides[month.slice(0,4)].confirmed:Number(month.slice(0,4))>2027)&&<p className="notice">Предварительный календарь: будущие переносы выходных ещё не учтены.</p>}

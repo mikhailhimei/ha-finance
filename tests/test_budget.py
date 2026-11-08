@@ -61,6 +61,27 @@ class BudgetTests(unittest.TestCase):
         clone['expenses'][0]['amount']=1
         self.assertEqual(self.budget['expenses'][0]['amount'],1100000)
 
+    def test_category_parts_do_not_double_count_and_clone_independently(self):
+        model.apply(self.data,'budget_expense_save',self.payload)
+        category=self.budget['expenses'][0]
+        payload={'budget_id':self.budget['id'],'expense_id':category['id'],'name':'Кровь','amount':300000,'comment':'Анализ'}
+        model.apply(self.data,'budget_part_save',payload)
+        part=category['children'][0]
+        self.assertEqual(category['amount'],1100000)
+        model.apply(self.data,'budget_part_save',{**payload,'part_id':part['id'],'amount':400000})
+        self.assertEqual(len(category['children']),1)
+        self.assertEqual(part['amount'],400000)
+        model.apply(self.data,'budget_clone',{'budget_id':self.budget['id'],'month':'2026-12'})
+        copied=self.data['budgets'][-1]['expenses'][0]['children'][0]
+        self.assertNotEqual(copied['id'],part['id'])
+        copied['name']='Другое'
+        self.assertEqual(part['name'],'Кровь')
+        model.apply(self.data,'budget_part_delete',{'budget_id':self.budget['id'],'expense_id':category['id'],'part_id':part['id']})
+        self.assertEqual(category['children'],[])
+        self.assertEqual(category['amount'],1100000)
+        with self.assertRaises(ValueError):model.apply(self.data,'budget_part_save',{**payload,'amount':-1})
+        self.assertEqual(category['children'],[])
+
     def test_validation(self):
         for change in [{'amount':-1},{'month':'2026-13'},{'payment_id':'missing'},{'comment':'x'*1001}]:
             with self.assertRaises(ValueError):model.apply(self.data,'budget_expense_save',{**self.payload,**change})

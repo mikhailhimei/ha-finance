@@ -15,7 +15,7 @@ with sync_playwright() as p:
         if(msg.type==='ha_finance/mutate'){
           if(msg.action==='budget_create')data.budgets.push({id:'b',name:'Ноябрь 2026',month:msg.payload.month,expenses:[]});
           if(msg.action==='budget_expense_save')data.budgets[0].expenses.push({...msg.payload,id:'e'});
-          if(msg.action==='budget_clone'){const source=data.budgets.find(b=>b.id===msg.payload.budget_id);data.budgets.push({...structuredClone(source),id:'clone',month:msg.payload.month,name:'Декабрь 2026',expenses:source.expenses.map(e=>({...e,id:'copy'+e.id,month:msg.payload.month}))})}if(msg.action==='budget_delete')data.budgets=data.budgets.filter(b=>b.id!==msg.payload.budget_id);if(msg.action==='budget_expense_delete')data.budgets[0].expenses=[];
+          if(msg.action==='budget_clone'){const source=data.budgets.find(b=>b.id===msg.payload.budget_id);data.budgets.push({...structuredClone(source),id:'clone',month:msg.payload.month,name:'Декабрь 2026',expenses:source.expenses.map(e=>({...e,id:'copy'+e.id,month:msg.payload.month}))})}if(msg.action==='budget_delete')data.budgets=data.budgets.filter(b=>b.id!==msg.payload.budget_id);if(msg.action==='budget_part_save'){const expense=data.budgets[0].expenses.find(e=>e.id===msg.payload.expense_id);expense.children??=[];if(msg.payload.part_id)Object.assign(expense.children.find(p=>p.id===msg.payload.part_id),msg.payload);else expense.children.push({...msg.payload,id:'part'})}if(msg.action==='budget_part_delete')data.budgets[0].expenses[0].children=[];if(msg.action==='budget_expense_delete')data.budgets[0].expenses=[];
           cb(structuredClone(data));
         }return structuredClone(data);
       }};document.body.append(panel);
@@ -47,6 +47,27 @@ with sync_playwright() as p:
     panel.get_by_label('Комментарий',exact=True).fill('Стоматолог')
     panel.get_by_role('button',name='Сохранить',exact=True).click()
     expect(panel.locator('.budget-expenses')).to_contain_text('Стоматолог')
+    expect(panel.locator('.summary .metric').last).to_contain_text('139')
+    panel.get_by_role('button',name='Открыть категорию Здоровье',exact=True).click()
+    expect(panel.locator('.toolbar h1')).to_have_text('Здоровье')
+    expect(panel.locator('.category-summary>.metric')).to_contain_text('11')
+    panel.get_by_role('button',name='Добавить',exact=True).click()
+    sheet=panel.get_by_role('dialog',name='Добавить подтип',exact=True)
+    sheet.get_by_label('Наименование',exact=True).fill('Кровь')
+    sheet.get_by_label('Сумма, ₽',exact=True).fill('3000')
+    sheet.get_by_label('Комментарий',exact=True).fill('Анализ крови')
+    sheet.get_by_role('button',name='Сохранить',exact=True).click()
+    expect(panel.locator('.category-parts')).to_contain_text('Кровь')
+    expect(panel.locator('.category-totals .metric').last).to_contain_text('8')
+    panel.get_by_role('button',name='Действия с подтипом Кровь').click()
+    panel.get_by_role('dialog',name='Кровь',exact=True).get_by_role('button',name='Изменить',exact=True).click()
+    panel.get_by_label('Сумма, ₽',exact=True).fill('4000')
+    panel.get_by_role('button',name='Сохранить',exact=True).click()
+    expect(panel.locator('.category-totals .metric').last).to_contain_text('7')
+    panel.get_by_role('button',name='Действия с подтипом Кровь').click()
+    panel.get_by_role('dialog',name='Кровь',exact=True).get_by_role('button',name='Удалить',exact=True).click()
+    expect(panel.locator('.category-parts .expense')).to_have_count(0)
+    page.go_back()
     expect(panel.locator('.summary .metric').last).to_contain_text('139')
     panel.get_by_role('button',name='Назад к доходам').click()
     panel.locator('.budget-periods button').first.click()

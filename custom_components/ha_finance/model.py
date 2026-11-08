@@ -109,7 +109,7 @@ def apply(data, action, payload):
         if not isinstance(month, str) or not re.fullmatch(r"(202[5-9]|20[3-9][0-9]|2100)-(0[1-9]|1[0-2])", month):
             raise ValueError("Выберите месяц бюджета")
         data["budgets"].append({"id":uuid4().hex,"name":budget_name(month),"month":month,
-                                "expenses":[{**e,"id":uuid4().hex,"month":month} for e in source["expenses"]]})
+                                "expenses":[{**e,"id":uuid4().hex,"month":month,"children":[{**child,"id":uuid4().hex} for child in e.get("children",[])]} for e in source["expenses"]]})
         return
     if action == "budget_delete":
         budgets = data.get("budgets", [])
@@ -123,6 +123,31 @@ def apply(data, action, payload):
         if not isinstance(month, str) or not re.fullmatch(r"(202[5-9]|20[3-9][0-9]|2100)-(0[1-9]|1[0-2])", month):
             raise ValueError("Выберите месяц бюджета")
         data.setdefault("budgets", []).append({"id":uuid4().hex,"name":budget_name(month),"month":month,"expenses":[]})
+        return
+    if action in ("budget_part_save", "budget_part_delete"):
+        budget = next((b for b in data.get("budgets", []) if b["id"] == payload["budget_id"]), None)
+        if budget is None:
+            raise ValueError("Бюджет не найден")
+        expense = next((e for e in budget["expenses"] if e["id"] == payload["expense_id"]), None)
+        if expense is None:
+            raise ValueError("Категория не найдена")
+        parts = expense.get("children", [])
+        part = next((p for p in parts if p["id"] == payload.get("part_id")), None)
+        if action == "budget_part_delete":
+            if part is None:
+                raise ValueError("Подтип не найден")
+            parts.remove(part)
+            return
+        if payload.get("part_id") and part is None:
+            raise ValueError("Подтип не найден")
+        comment = payload.get("comment", "")
+        if not isinstance(comment, str) or len(comment)>1000:
+            raise ValueError("Комментарий должен быть до 1000 символов")
+        fields = {"name":label(payload["name"]),"amount":amount(payload["amount"]),"comment":comment.strip()}
+        if part is None:
+            part = {"id":uuid4().hex}
+            expense.setdefault("children", []).append(part)
+        part.update(fields)
         return
     if action in ("budget_expense_save", "budget_expense_delete"):
         budget = next((b for b in data.get("budgets", []) if b["id"] == payload["budget_id"]), None)
