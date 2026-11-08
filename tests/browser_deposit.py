@@ -15,7 +15,7 @@ with sync_playwright() as p:
     }''')
     panel=page.locator('ha-finance-panel')
     card=panel.locator('.card')
-    expect(card).to_contain_text('Свободно после всех планов')
+    expect(card).to_contain_text('Свободные деньги')
     assert card.locator('.metric').first.inner_text().replace('\xa0','').find('243000')>=0
     expect(card).to_contain_text('Оплачено')
     expect(card).to_contain_text('Ожидается')
