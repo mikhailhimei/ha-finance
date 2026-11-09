@@ -8,10 +8,10 @@ with sync_playwright() as p:
     page.goto('http://127.0.0.1:8765/')
     page.evaluate('''() => {
       document.getElementById('root').remove();document.body.style.margin='0';
-      const panel=document.createElement('ha-finance-panel');let cb;
-      const data={deposits:[],workers:[],budgets:[]};
+      const panel=document.createElement('ha-finance-panel');let cb;window.scheduleCalls=0;
+      const data={deposits:[],workers:[],budgets:[]};window.updateWorkers=()=>{data.workers=[{id:'w',name:'Миша',employment:'TK',income:10000000,salary_day:14,advance_day:29}];cb(structuredClone(data))};
       panel.hass={connection:{subscribeMessage:async c=>{cb=c;c(structuredClone(data));return ()=>{}}},callWS:async msg=>{
-        if(msg.type==='ha_finance/budget_schedule')return [{id:'w:salary',name:'Миша · Зарплата',date:'2026-11-13',amount:10000000},{id:'l:salary',name:'Лена · Зарплата',date:'2026-11-13',amount:5000000},{id:'f:fixed',name:'Аренда',date:'2026-11-06',amount:3000000}];
+        if(msg.type==='ha_finance/budget_schedule'){window.scheduleCalls++;const result=[{id:'w:salary',name:'Миша · Зарплата',date:'2026-11-13',amount:10000000},{id:'l:salary',name:'Лена · Зарплата',date:'2026-11-13',amount:5000000},{id:'f:fixed',name:'Аренда',date:'2026-11-06',amount:3000000}];if(window.deferSchedule)return new Promise(resolve=>{window.finishSchedule=()=>{window.deferSchedule=false;resolve(result)}});return result;}
         if(msg.type==='ha_finance/mutate'){
           if(msg.action==='budget_create')data.budgets.push({id:'b',name:'Ноябрь 2026',month:msg.payload.month,expenses:[]});
           if(msg.action==='budget_expense_save')data.budgets[0].expenses.push({...msg.payload,id:'e'});
@@ -41,6 +41,18 @@ with sync_playwright() as p:
     expect(panel.locator('.toolbar h1')).to_have_text('13.11.2026')
     expect(panel.locator('.summary .metric').first).to_contain_text('150')
     expect(panel.get_by_text('Трат пока нет. Укажите, на что пойдут деньги.',exact=True)).to_have_count(0)
+    calls_before=page.evaluate('window.scheduleCalls')
+    page.evaluate('''() => {
+      window.skeletonFlashes=0;
+      new MutationObserver(records=>{for(const record of records)for(const node of record.addedNodes){if(node.nodeType===1&&(node.matches('.skeleton')||node.querySelector('.skeleton')))window.skeletonFlashes++}}).observe(document.querySelector('ha-finance-panel').shadowRoot,{childList:true,subtree:true});
+    }''')
+    page.evaluate('window.deferSchedule=true;window.updateWorkers()')
+    page.wait_for_function('typeof window.finishSchedule === "function"')
+    expect(panel.locator('.budget-overview')).to_be_visible()
+    expect(panel.locator('.skeleton')).to_have_count(0)
+    assert page.evaluate('window.skeletonFlashes')==0
+    page.evaluate('window.finishSchedule()')
+    calls_before=page.evaluate('window.scheduleCalls')
     panel.get_by_role('button',name='Добавить трату',exact=True).click()
     expect(panel.get_by_role('dialog',name='Добавить трату').get_by_role('combobox')).to_have_count(0)
     panel.get_by_label('Наименование',exact=True).fill('Здоровье')
@@ -48,6 +60,8 @@ with sync_playwright() as p:
     panel.get_by_label('Комментарий',exact=True).fill('Стоматолог')
     panel.get_by_role('button',name='Сохранить',exact=True).click()
     expect(panel.locator('.budget-expenses')).to_contain_text('Стоматолог')
+    assert page.evaluate('window.scheduleCalls')==calls_before
+    assert page.evaluate('window.skeletonFlashes')==0
     expect(panel.locator('.summary .metric').last).to_contain_text('139')
     category_link=panel.get_by_role('button',name='Открыть категорию Здоровье',exact=True)
     assert category_link.bounding_box()['width']>100

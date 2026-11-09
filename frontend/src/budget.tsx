@@ -11,7 +11,7 @@ import { useDepositNavigation } from './use-deposit-navigation';
 
 type Payment={id:string;name:string;date:string;amount:number};
 export function Budgets({data,hass,selectTab,openSidebar,loading=false}:{loading?:boolean;data:Data;hass?:Hass;selectTab:(tab:number)=>void;openSidebar:()=>void}){
- const [dialog,setDialog]=useState<'budget'|'expense'|'clone'>(),[payments,setPayments]=useState<Payment[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false);
+ const [dialog,setDialog]=useState<'budget'|'expense'|'clone'>(),[schedule,setSchedule]=useState<{month:string;payments:Payment[]}>(),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const [budgetActions,setBudgetActions]=useState<Budget>(),[cloneSource,setCloneSource]=useState<Budget>();
  const [categoryBlocked,setCategoryBlocked]=useState(false);
  const [deletingBudget,setDeletingBudget]=useState<Budget>();
@@ -19,8 +19,12 @@ export function Budgets({data,hass,selectTab,openSidebar,loading=false}:{loading
  const {selected,navigate,surface}=useDepositNavigation(Boolean(dialog||actions||deletingBudget||budgetActions||categoryBlocked),'haFinanceBudget');
  const budget=data.budgets?.find(b=>b.id===selected?.split('/')[0]);
  const month=budget?.month||today().slice(0,7);
+ const loaded=schedule?.month===month;
+ const payments=loaded?schedule.payments:[];
+ const workersSignature=JSON.stringify(data.workers||[]);
+ const calendarSignature=JSON.stringify(data.calendar_overrides||{});
  useEffect(()=>{setDialog(undefined);setActions(undefined);window.scrollTo(0,0)},[selected]);
- useEffect(()=>{let active=true;setLoaded(false);setError('');if(!hass)return;const [year,m]=month.split('-').map(Number);hass.callWS<Payment[]>({type:'ha_finance/budget_schedule',year,month:m}).then(p=>{if(active){setPayments(p);setLoaded(true)}}).catch(e=>{if(active)setError(String(e.message||e))});return ()=>{active=false}},[hass,month,data.workers,data.calendar_overrides]);
+ useEffect(()=>{let active=true;setError('');if(!hass)return;const [year,m]=month.split('-').map(Number);hass.callWS<Payment[]>({type:'ha_finance/budget_schedule',year,month:m}).then(p=>{if(active){setSchedule({month,payments:p})}}).catch(e=>{if(active)setError(String(e.message||e))});return ()=>{active=false}},[hass,month,workersSignature,calendarSignature]);
  const category=budget?.expenses.find(e=>e.id===selected?.split('/')[2]);
  const view=selected?.split('/')[1];
  const groups=Object.values(payments.reduce<Record<string,{date:string;payments:Payment[];amount:number}>>((result,p)=>{
