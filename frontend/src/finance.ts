@@ -3,7 +3,7 @@ export const money = (n:number) => new Intl.NumberFormat('ru-RU',{style:'currenc
 export const kopecks = (s:string) => {const n=Number(s.replace(',','.')); if(!Number.isFinite(n)||n<0) throw Error('Введите положительную сумму'); return Math.round(n*100)};
 export const total = (d:Deposit) => {
  const income=d.expenses.filter(e=>e.kind==='income'&&e.paid).reduce((s,e)=>s+e.amount,0);
- const principal=d.principal+income;
+ const principal=d.principal+income-(d.settled_expenses||0);
  const actual=d.expenses.filter(e=>e.kind!=='income'&&e.paid).reduce((s,e)=>s+e.amount,0);
  const expected=d.expenses.filter(e=>e.kind!=='income'&&!e.paid).reduce((s,e)=>s+e.amount,0);
  return {principal,actual,expected,balance:principal-actual,available:principal-actual-expected};

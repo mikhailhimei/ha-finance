@@ -50,7 +50,7 @@ function App({hass,openSidebar=()=>{}}:{hass?:Hass;openSidebar?:()=>void}){
   {label:'Отмена',run:()=>setDeletingDeposit(undefined)},
  ]}/>}
 
- {deleting&&d&&<ActionSheet title="Точно удалить?" description={`«${deleting.name}» — ${deleting.kind==='income'?'+':'−'}${money(deleting.amount)}. Суммы вклада будут пересчитаны.`} close={()=>setDeleting(undefined)} actions={[
+ {deleting&&d&&<ActionSheet title="Точно удалить?" description={`«${deleting.name}» — ${deleting.kind==='income'?'+':'−'}${money(deleting.amount)}. ${deleting.paid&&deleting.kind!=='income'?'Запись исчезнет, общая сумма уменьшится. Потраченные деньги не вернутся в остаток.':'Суммы вклада будут пересчитаны.'}`} close={()=>setDeleting(undefined)} actions={[
   {label:busy?'Удаление…':'Удалить',danger:true,disabled:busy,run:()=>void mutate('expense_delete',{deposit_id:d.id,expense_id:deleting.id})},
   {label:'Отмена',run:()=>setDeleting(undefined)},
  ]}/>}

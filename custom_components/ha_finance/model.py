@@ -18,7 +18,7 @@ def label(value):
 
 def totals(deposit):
     income = sum(e["amount"] for e in deposit["expenses"] if e.get("kind") == "income" and e["paid"])
-    principal = deposit["principal"] + income
+    principal = deposit["principal"] + income - deposit.get("settled_expenses", 0)
     actual = sum(e["amount"] for e in deposit["expenses"] if e.get("kind", "expense") == "expense" and e["paid"])
     expected = sum(e["amount"] for e in deposit["expenses"] if e.get("kind", "expense") == "expense" and not e["paid"])
     return {"principal": principal, "actual": actual, "expected": expected,
@@ -254,6 +254,8 @@ def apply(data, action, payload):
         if expense is None:
             raise ValueError("Расход не найден")
         if action == "expense_delete":
+            if expense["paid"] and expense.get("kind", "expense") == "expense":
+                deposit["settled_expenses"] = deposit.get("settled_expenses", 0) + expense["amount"]
             deposit["expenses"].remove(expense)
         else:
             if type(payload["paid"]) is not bool:

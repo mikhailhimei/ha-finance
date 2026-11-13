@@ -55,10 +55,28 @@ class FinanceTests(unittest.TestCase):
             with self.assertRaises(ValueError):model.amount(value)
         with self.assertRaises(ValueError):model.label(' ')
 
-    def test_delete_paid_expense_restores_balance(self):
+    def test_delete_paid_expense_preserves_spending(self):
         e=self.expense(True)
         model.apply(self.data,'expense_delete',{'deposit_id':self.id,'expense_id':e['id']})
-        self.assertEqual(model.totals(self.deposit)['balance'],10000000)
+        self.assertEqual(model.totals(self.deposit), {'principal':5300000,'actual':0,'expected':0,'balance':5300000,'available':5300000})
+        self.assertEqual(self.deposit['expenses'],[])
+        with self.assertRaises(ValueError):
+            model.apply(self.data,'expense_delete',{'deposit_id':self.id,'expense_id':e['id']})
+        self.assertEqual(model.totals(self.deposit)['balance'],5300000)
+
+    def test_delete_expense_paid_from_income_with_other_plans(self):
+        self.deposit['principal']=0
+        model.apply(self.data,'expense_save',{'deposit_id':self.id,'kind':'income','name':'Доход','amount':10000000,'date':'2026-11-08','paid':True})
+        self.expense(True)
+        paid=self.deposit['expenses'][-1]
+        self.expense(False)
+        before=model.totals(self.deposit)
+        model.apply(self.data,'expense_delete',{'deposit_id':self.id,'expense_id':paid['id']})
+        after=model.totals(self.deposit)
+        self.assertEqual(after['principal'],5300000)
+        self.assertEqual(after['balance'],before['balance'])
+        self.assertEqual(after['available'],before['available'])
+        self.assertEqual(after['expected'],before['expected'])
 
 class IncomeTests(unittest.TestCase):
     setUp = FinanceTests.setUp

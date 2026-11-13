@@ -10,7 +10,7 @@ with sync_playwright() as p:
       const panel=document.createElement('ha-finance-panel');let cb;
       const data={deposits:[{id:'home',name:'Вклад озон',principal:29000000,expenses:[{id:'mortgage',name:'Ипотека',amount:4700000,date:'2026-11-08',paid:false},...Array.from({length:18},(_,i)=>({id:'e'+i,name:'Платёж '+i,amount:0,date:'2027-01-01',paid:false}))]}]};
       window.calls=[];
-      panel.hass={connection:{subscribeMessage:async callback=>{cb=callback;cb(structuredClone(data));return ()=>{}}},callWS:async msg=>{if(msg.type==='ha_finance/mutate'){window.calls.push(msg);if(msg.action==='expense_delete')data.deposits[0].expenses=data.deposits[0].expenses.filter(e=>e.id!==msg.payload.expense_id);if(msg.action==='expense_save')data.deposits[0].expenses.push({...msg.payload,id:'income'});if(msg.action==='expense_paid')data.deposits[0].expenses.find(e=>e.id===msg.payload.expense_id).paid=msg.payload.paid;if(msg.action==='delete')data.deposits=[];cb(structuredClone(data))}return structuredClone(data)}};
+      panel.hass={connection:{subscribeMessage:async callback=>{cb=callback;cb(structuredClone(data));return ()=>{}}},callWS:async msg=>{if(msg.type==='ha_finance/mutate'){window.calls.push(msg);if(msg.action==='expense_delete'){const d=data.deposits[0],e=d.expenses.find(e=>e.id===msg.payload.expense_id);if(e.paid&&e.kind!=='income')d.settled_expenses=(d.settled_expenses||0)+e.amount;d.expenses=d.expenses.filter(e=>e.id!==msg.payload.expense_id);}if(msg.action==='expense_save')data.deposits[0].expenses.push({...msg.payload,id:'income'});if(msg.action==='expense_paid')data.deposits[0].expenses.find(e=>e.id===msg.payload.expense_id).paid=msg.payload.paid;if(msg.action==='delete')data.deposits=[];cb(structuredClone(data))}return structuredClone(data)}};
       document.body.append(panel);
     }''')
     panel=page.locator('ha-finance-panel')
@@ -66,12 +66,16 @@ with sync_playwright() as p:
     sheet.get_by_role('button',name='Изменить',exact=True).click()
     expect(panel.get_by_label('Название',exact=True)).to_have_value('Ипотека')
     panel.get_by_role('button',name='Закрыть',exact=True).click()
+    panel.get_by_role('checkbox',name='Оплачено: Ипотека').check()
+    expect(panel.locator('.summary .metric').nth(2)).to_contain_text('243')
+    panel.get_by_role('button',name='Удалить операцию Ипотека').click()
+    confirmation=panel.get_by_role('dialog',name='Точно удалить?')
+    expect(confirmation).to_contain_text('Потраченные деньги не вернутся в остаток')
+    confirmation.get_by_role('button',name='Удалить',exact=True).click()
+    expect(panel.locator('.donut')).to_contain_text('243')
+    expect(panel.locator('.summary .metric').nth(2)).to_contain_text('243')
+    expect(panel.get_by_role('checkbox',name='Оплачено: Ипотека')).to_have_count(0)
     page.on('dialog',lambda d:d.accept())
-    panel.get_by_role('button',name='Действия с операцией Ипотека').click()
-    panel.get_by_role('dialog',name='Ипотека',exact=True).get_by_role('button',name='Удалить',exact=True).click()
-    panel.get_by_role('dialog',name='Точно удалить?').get_by_role('button',name='Удалить',exact=True).click()
-    expect(panel.get_by_role('button',name='Действия с операцией Ипотека')).to_have_count(0)
-    assert page.evaluate('window.calls.at(-1).action')=='expense_delete'
     page.evaluate('window.scrollTo(0,document.documentElement.scrollHeight)')
     last=panel.locator('.expense').last
     last.scroll_into_view_if_needed()
@@ -94,14 +98,14 @@ with sync_playwright() as p:
     income=panel.locator('.expense').filter(has_text='Зарплата')
     expect(income).to_contain_text('+10')
     expect(income.get_by_role('button',name='Действия с операцией Зарплата')).to_have_count(0)
-    expect(panel.locator('.donut')).to_contain_text('300')
+    expect(panel.locator('.donut')).to_contain_text('253')
     income.get_by_role('button',name='Удалить операцию Зарплата').click()
     confirmation=panel.get_by_role('dialog',name='Точно удалить?')
     confirmation.get_by_role('button',name='Отмена').click()
     expect(income).to_be_visible()
     income.get_by_role('button',name='Удалить операцию Зарплата').click()
     panel.get_by_role('dialog',name='Точно удалить?').get_by_role('button',name='Удалить',exact=True).click()
-    expect(panel.locator('.donut')).to_contain_text('290')
+    expect(panel.locator('.donut')).to_contain_text('243')
     expect(income).to_have_count(0)
     page.evaluate('window.scrollTo(0,0)')
     page.screenshot(path='/tmp/finance-deposit.png',full_page=False)
