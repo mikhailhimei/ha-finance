@@ -109,7 +109,7 @@ def apply(data, action, payload):
         if not isinstance(month, str) or not re.fullmatch(r"(202[5-9]|20[3-9][0-9]|2100)-(0[1-9]|1[0-2])", month):
             raise ValueError("Выберите месяц бюджета")
         data["budgets"].append({"id":uuid4().hex,"name":budget_name(month),"month":month,
-                                "expenses":[{**e,"id":uuid4().hex,"month":month,"children":[{**child,"id":uuid4().hex} for child in e.get("children",[])]} for e in source["expenses"]]})
+                                "expenses":[{**e,"id":uuid4().hex,"month":month,"transferred":False,"children":[{**child,"id":uuid4().hex} for child in e.get("children",[])]} for e in source["expenses"]]})
         return
     if action == "budget_delete":
         budgets = data.get("budgets", [])
@@ -149,11 +149,19 @@ def apply(data, action, payload):
             expense.setdefault("children", []).append(part)
         part.update(fields)
         return
-    if action in ("budget_expense_save", "budget_expense_delete"):
+    if action in ("budget_expense_save", "budget_expense_delete", "budget_expense_transferred"):
         budget = next((b for b in data.get("budgets", []) if b["id"] == payload["budget_id"]), None)
         if budget is None:
             raise ValueError("Бюджет не найден")
         expense = next((e for e in budget["expenses"] if e["id"] == payload.get("expense_id")), None)
+        if action == "budget_expense_transferred":
+            if expense is None:
+                raise ValueError("Трата не найдена")
+            transferred = payload.get("transferred")
+            if not isinstance(transferred, bool):
+                raise ValueError("Отметка перевода должна быть логическим значением")
+            expense["transferred"] = transferred
+            return
         if action == "budget_expense_delete":
             if expense is None:
                 raise ValueError("Трата не найдена")

@@ -82,6 +82,31 @@ class BudgetTests(unittest.TestCase):
         with self.assertRaises(ValueError):model.apply(self.data,'budget_part_save',{**payload,'amount':-1})
         self.assertEqual(category['children'],[])
 
+    def test_transfer_marker_only_changes_marker_and_resets_on_clone(self):
+        import copy
+        import json
+        model.apply(self.data,'budget_expense_save',self.payload)
+        expense=self.budget['expenses'][0]
+        before=copy.deepcopy(self.data)
+        payload={'budget_id':self.budget['id'],'expense_id':expense['id'],'transferred':True}
+        model.apply(self.data,'budget_expense_transferred',payload)
+        expected=copy.deepcopy(before)
+        expected['budgets'][0]['expenses'][0]['transferred']=True
+        self.assertEqual(self.data,expected)
+        restored=json.loads(json.dumps(self.data))
+        self.assertTrue(restored['budgets'][0]['expenses'][0]['transferred'])
+        model.apply(self.data,'budget_expense_save',{**self.payload,'expense_id':expense['id']})
+        self.assertTrue(expense['transferred'])
+        model.apply(self.data,'budget_clone',{'budget_id':self.budget['id'],'month':'2026-12'})
+        self.assertFalse(self.data['budgets'][-1]['expenses'][0]['transferred'])
+        model.apply(self.data,'budget_expense_transferred',{**payload,'transferred':False})
+        self.assertFalse(expense['transferred'])
+        for invalid in ['true',1,None]:
+            with self.assertRaises(ValueError):
+                model.apply(self.data,'budget_expense_transferred',{**payload,'transferred':invalid})
+        with self.assertRaises(ValueError):
+            model.apply(self.data,'budget_expense_transferred',{**payload,'expense_id':'missing'})
+
     def test_validation(self):
         for change in [{'amount':-1},{'month':'2026-13'},{'payment_id':'missing'},{'comment':'x'*1001}]:
             with self.assertRaises(ValueError):model.apply(self.data,'budget_expense_save',{**self.payload,**change})

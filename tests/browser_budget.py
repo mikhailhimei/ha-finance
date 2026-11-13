@@ -14,6 +14,7 @@ with sync_playwright() as p:
         if(msg.type==='ha_finance/budget_schedule'){window.scheduleCalls++;const result=[{id:'w:salary',name:'Миша · Зарплата',date:'2026-11-13',amount:10000000},{id:'l:salary',name:'Лена · Зарплата',date:'2026-11-13',amount:5000000},{id:'f:fixed',name:'Аренда',date:'2026-11-06',amount:3000000}];if(window.deferSchedule)return new Promise(resolve=>{window.finishSchedule=()=>{window.deferSchedule=false;resolve(result)}});return result;}
         if(msg.type==='ha_finance/mutate'){
           if(msg.action==='budget_create')data.budgets.push({id:'b',name:'Ноябрь 2026',month:msg.payload.month,expenses:[]});
+          if(msg.action==='budget_expense_transferred')data.budgets[0].expenses.find(e=>e.id===msg.payload.expense_id).transferred=msg.payload.transferred;
           if(msg.action==='budget_expense_save')data.budgets[0].expenses.push({...msg.payload,id:'e'});
           if(msg.action==='budget_clone'){const source=data.budgets.find(b=>b.id===msg.payload.budget_id);data.budgets.push({...structuredClone(source),id:'clone',month:msg.payload.month,name:'Декабрь 2026',expenses:source.expenses.map(e=>({...e,id:'copy'+e.id,month:msg.payload.month}))})}if(msg.action==='budget_delete')data.budgets=data.budgets.filter(b=>b.id!==msg.payload.budget_id);if(msg.action==='budget_part_save'){const expense=data.budgets[0].expenses.find(e=>e.id===msg.payload.expense_id);expense.children??=[];if(msg.payload.part_id)Object.assign(expense.children.find(p=>p.id===msg.payload.part_id),msg.payload);else expense.children.push({...msg.payload,id:'part'})}if(msg.action==='budget_part_delete')data.budgets[0].expenses[0].children=[];if(msg.action==='budget_expense_delete')data.budgets[0].expenses=[];
           cb(structuredClone(data));
@@ -63,6 +64,11 @@ with sync_playwright() as p:
     assert page.evaluate('window.scheduleCalls')==calls_before
     assert page.evaluate('window.skeletonFlashes')==0
     expect(panel.locator('.summary .metric').last).to_contain_text('139')
+    transferred=panel.get_by_role('checkbox',name='Переведено: Здоровье',exact=True)
+    expect(transferred).not_to_be_checked()
+    transferred.check()
+    expect(transferred).to_be_checked()
+    expect(panel.locator('.summary .metric').last).to_contain_text('139')
     category_link=panel.get_by_role('button',name='Открыть категорию Здоровье',exact=True)
     assert category_link.bounding_box()['width']>100
     assert category_link.bounding_box()['height']<30
@@ -89,6 +95,10 @@ with sync_playwright() as p:
     expect(panel.locator('.summary .metric').last).to_contain_text('139')
     panel.get_by_role('button',name='Назад к доходам').click()
     panel.locator('.budget-periods button').first.click()
+    expect(panel.locator('.summary .metric').last).to_contain_text('169')
+    expect(transferred).to_be_checked()
+    transferred.uncheck()
+    expect(transferred).not_to_be_checked()
     expect(panel.locator('.summary .metric').last).to_contain_text('169')
     expect(panel.locator('.budget-expense-group')).to_have_count(2)
     expect(panel.locator('.budget-expense-group').filter(has_text='Миша')).to_contain_text('Здоровье')
