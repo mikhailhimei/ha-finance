@@ -13,7 +13,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 
-from .model import apply, due_events, migrate_budget_months
+from .model import apply, due_events, migrate_budget_months, migrate_deposit_principals
 from .payroll import calculate, migrate_worker_days, budget_schedule, export_calendar, parse_remote_calendar
 
 DOMAIN = "ha_finance"
@@ -24,7 +24,8 @@ async def async_setup_entry(hass, entry):
     data = await store.async_load() or {"deposits": []}
     workers_changed = migrate_worker_days(data)
     budgets_changed = migrate_budget_months(data, dt_util.now().strftime("%Y-%m"))
-    if workers_changed or budgets_changed:
+    deposits_changed = migrate_deposit_principals(data)
+    if workers_changed or budgets_changed or deposits_changed:
         await store.async_save(data)
     lock = asyncio.Lock()
     listeners = set()

@@ -60,9 +60,25 @@ class FinanceTests(unittest.TestCase):
         model.apply(self.data,'expense_delete',{'deposit_id':self.id,'expense_id':e['id']})
         self.assertEqual(model.totals(self.deposit), {'principal':5300000,'actual':0,'expected':0,'balance':5300000,'available':5300000})
         self.assertEqual(self.deposit['expenses'],[])
+        self.assertEqual(self.deposit['principal'],5300000)
         with self.assertRaises(ValueError):
             model.apply(self.data,'expense_delete',{'deposit_id':self.id,'expense_id':e['id']})
         self.assertEqual(model.totals(self.deposit)['balance'],5300000)
+
+    def test_edit_replaces_principal_after_paid_expense_deletion(self):
+        expense = self.expense(True)
+        model.apply(self.data, 'expense_delete', {'deposit_id': self.id, 'expense_id': expense['id']})
+        model.apply(self.data, 'update', {'deposit_id': self.id, 'name': 'Дом', 'principal': 6000000})
+        self.assertEqual(model.totals(self.deposit)['principal'], 6000000)
+
+    def test_migrate_settled_expenses_preserves_balance(self):
+        self.deposit['settled_expenses'] = 4700000
+        self.assertTrue(model.migrate_deposit_principals(self.data))
+        self.assertFalse(model.migrate_deposit_principals(self.data))
+        self.assertNotIn('settled_expenses', self.deposit)
+        self.assertEqual(model.totals(self.deposit)['balance'], 5300000)
+        model.apply(self.data, 'update', {'deposit_id': self.id, 'name': 'Дом', 'principal': 6000000})
+        self.assertEqual(model.totals(self.deposit)['balance'], 6000000)
 
     def test_delete_expense_paid_from_income_with_other_plans(self):
         self.deposit['principal']=0
@@ -73,6 +89,7 @@ class FinanceTests(unittest.TestCase):
         before=model.totals(self.deposit)
         model.apply(self.data,'expense_delete',{'deposit_id':self.id,'expense_id':paid['id']})
         after=model.totals(self.deposit)
+        self.assertEqual(self.deposit['principal'],-4700000)
         self.assertEqual(after['principal'],5300000)
         self.assertEqual(after['balance'],before['balance'])
         self.assertEqual(after['available'],before['available'])
@@ -94,8 +111,11 @@ class IncomeTests(unittest.TestCase):
         self.assertEqual(model.totals(self.deposit)['balance'],5300000)
         model.apply(self.data,'expense_paid',{'deposit_id':self.id,'expense_id':income['id'],'paid':True})
         model.apply(self.data,'expense_delete',{'deposit_id':self.id,'expense_id':income['id']})
-        self.assertEqual(model.totals(self.deposit)['principal'],10000000)
-        self.assertEqual(model.totals(self.deposit)['balance'],5300000)
+        self.assertEqual(self.deposit['principal'],12000000)
+        self.assertEqual(model.totals(self.deposit)['principal'],12000000)
+        self.assertEqual(model.totals(self.deposit)['balance'],7300000)
+        model.apply(self.data, 'update', {'deposit_id': self.id, 'name': 'Дом', 'principal': 13000000})
+        self.assertEqual(model.totals(self.deposit)['principal'], 13000000)
 
     def test_income_does_not_fire_expense_reminder(self):
         model.apply(self.data,'expense_save',{'deposit_id':self.id,'name':'Доход','amount':100,'date':'2026-11-08','paid':False,'kind':'income'})
